@@ -186,13 +186,16 @@ module.exports = (bot, existingUserKeyboard) => {
 
       await bot.sendMessage(
         chatId,
-        "📝 Ishga kirish uchun quyidagi ma'lumotlarni to'ldiring:"
+        "📝 Ishga kirish uchun quyidagi ma'lumotlarni to'ldiring:",
+        {
+          reply_markup: { remove_keyboard: true },
+        }
       );
 
       const firstQuestion = applicationQuestions[0].question;
       await bot.sendMessage(chatId, firstQuestion);
 
-      return; // ✅ IMPORTANT: Exit, prevent processing button message as answer
+      return;
     }
 
     if (text === "📲 Jamg‘arma kartasi") {
@@ -274,7 +277,7 @@ module.exports = (bot, existingUserKeyboard) => {
         phone: searchPhone,
         code,
       });
-      
+
       await bot.sendMessage(
         chatId,
         "📢 Davom etish uchun kanalga qo'shiling!",
