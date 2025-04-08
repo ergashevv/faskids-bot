@@ -63,6 +63,10 @@ module.exports = (bot, existingUserKeyboard) => {
     const text = msg.text?.trim();
     const state = userStates[chatId];
 
+    if (msg.text === "/start") {
+      return;
+    }
+
     if (!userStates[chatId] || Object.keys(userStates[chatId]).length === 0) {
       userStates[chatId] = { step: "get_name" };
 
@@ -116,7 +120,13 @@ module.exports = (bot, existingUserKeyboard) => {
     💼 Ishga ariza holati: ${applicationStatus}
       `;
 
-      return bot.sendMessage(chatId, profileText.trim());
+      return bot.sendMessage(chatId, profileText.trim(), {
+        reply_markup: {
+          keyboard: [["🔙 Back"]],
+          resize_keyboard: true,
+          one_time_keyboard: false,
+        },
+      });
     }
 
     if (text === "🏢 Filliallar ro‘yxati") {
@@ -124,6 +134,14 @@ module.exports = (bot, existingUserKeyboard) => {
         return `🏢 ${fillial.name}\n📍 Manzil: ${fillial.address}\n📞 Telefon: ${fillial.phone}\n⏰ Ish vaqti: ${fillial.workingHours}`;
       }).join("\n\n");
       return bot.sendMessage(chatId, fillialList);
+    }
+
+    if (text === "🔙 Back") {
+      return bot.sendMessage(
+        chatId,
+        "🏠 Asosiy menyuga qaytdingiz.",
+        existingUserKeyboard
+      );
     }
 
     if (text === "📞 Murojaatlar") {
