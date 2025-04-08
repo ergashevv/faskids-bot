@@ -8,4 +8,3 @@ module.exports = (bot) => {
       await bot.sendMessage(chatId, '👋 Ismingiz va familiyangizni yuboring (masalan: Ali Valiyev):');
     });
   };
-  

@@ -9,9 +9,8 @@ const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 const existingUserKeyboard = {
   reply_markup: {
     keyboard: [
-      ["📲 Jamg‘arma kartasi", "📞 Murojaatlar"],
+      ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
       ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
-      ["🎁 Bonuslar", "👤 Profil"],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
