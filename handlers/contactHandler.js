@@ -4,25 +4,7 @@ const moysklad = require("../services/moysklad");
 const userStates = require("../userStates");
 const showBonusCard = require("../components/showBonusCard");
 
-const applicationQuestions = [
-  { question: "📝 Avtobiografiya (F.I.Sh.):", answer: "" },
-  { question: "🎂 Tug‘ilgan sana:", answer: "" },
-  { question: "📍 Yashash manzilingiz:", answer: "" },
-  { question: "📞 Telefon raqamingiz:", answer: "" },
-  { question: "🌐 Qanday xorijiy tillarni bilasiz? :", answer: "" },
-  { question: "💻 Qanday kompyuter dasturlarini bilasiz?:", answer: "" },
-  { question: "👪 Oilangiz haqida ma’lumot bering:", answer: "" },
-  { question: "🏢 Oxirgi ish joyingiz? :", answer: "" },
-  { question: "❓ Nima uchun oldingi ish joyingizdan bo‘shagansiz?:", answer: "" },
-  { question: "💼 Nima uchun bu ish sizni qiziqtirmoqda? :", answer: "" },
-  { question: "📢 Ish haqi haqida qayerdan bilib oldingiz? (OLX, Telegram, internetda, do‘stlaringiz, shu yerda ishlaganlar...) :", answer: "" },
-  { question: "🧩 Xarakteringiz va qiziqishlaringiz haqida ma’lumot bering:", answer: "" },
-  { question: "🎯 Qanday kitoblarni mutolaa qilgansiz?:", answer: "" },
-  { question: "🏆 Yutuqlaringiz:", answer: "" },
-  { question: "🚀 Qaysi yo'nalishda ishlamoqchisiz? (Konsultat, Kassir, SMM, Marketolog, Moliyachi, Omborxona xodimi (WMS):", answer: "" },
-  { question: "Nima uchun bu yo'nalishni tanladingiz. Shu haqida qisqacha ma'lumot yozing :", answer: "" },
-  { question: "Qaysi smenada ishlamoqchisiz. 1) 09:00 - 17:30  2) 14:45 - 23:00 :", answer: "" },
-];
+
 
 module.exports = (bot, existingUserKeyboard) => {
   // Bitta yagona message handler
@@ -54,6 +36,14 @@ module.exports = (bot, existingUserKeyboard) => {
       }
       return showBonusCard(bot, chatId, state.userCode);
     }
+    if (text === "📞 Aloqa") {
+      if (!state.userCode) {
+        return bot.sendMessage(chatId, "❗ Siz ro'yxatdan o'tmagansiz. Iltimos, /start buyrug'ini bosib ro'yxatdan o'ting.");
+      } else {
+        return bot.sendMessage(chatId, "+998507266007");
+      }
+    }
+
 
     // "🏢 Filliallar ro‘yxati"
     if (text === "🏢 Filliallar ro‘yxati") {
@@ -69,12 +59,13 @@ module.exports = (bot, existingUserKeyboard) => {
     }
 
     // "📞 Talab va taklif"
+    // "📞 Talab va taklif"
     if (text === "📞 Talab va taklif") {
       state.feedbackMessages = [];
       state.step = "collect_feedback";
       return bot.sendMessage(
         chatId,
-        "✍️ Fikringizni matn, ovozli yoki video xabar shaklida yuboring.",
+        "✍️ Fikringizni matn, ovozli yoki video xabar shaklida yuboring. (Rasm ham yuborishingiz mumkin.)",
         {
           reply_markup: {
             keyboard: [["🔙 Ortga"]],
@@ -87,14 +78,24 @@ module.exports = (bot, existingUserKeyboard) => {
 
     // Feedback branch
     if (state.step === "collect_feedback") {
-      const channelId = "-1002689337016";
+      // Agar foydalanuvchi "🔙 Ortga" tugmasini bosmasa, demak feedback davom etadi.
+      // Shuning uchun "🔙 Ortga" bosilgandagina asosiy menyuga qaytamiz:
+      if (text === "🔙 Ortga") {
+        state.step = "main_menu";
+        return bot.sendMessage(chatId, "Asosiy menyu:", existingUserKeyboard);
+      }
+
+      // Aks holda — foydalanuvchi xoh matn, xoh media yuborsin — kanalingizga forward qilinadi:
+      const channelId = "-1002689337016"; // o'z kanal IDingiz
       const username = msg.from.username ? `@${msg.from.username}` : "(username yo'q)";
       const firstName = msg.from.first_name || "(ismi yo'q)";
       const lastName = msg.from.last_name || "";
       const fullName = state.fullName || "(Ro'yxatdagi ism yo'q)";
       const phone = state.phone || "(Telefon yo'q)";
+      // msg.text bo'lmasa, userMessage'ga e'tibor berilmaydi. Lekin matn bo'lsa chiqarib yuboriladi:
       const userMessage = text || "(Matnli xabar yo'q)";
 
+      // Kanaldagi matn formati:
       const feedbackText =
         `📝 Yangi murojaat:\n` +
         `👤 <b>Foydalanuvchi:</b> ${fullName}\n` +
@@ -104,15 +105,36 @@ module.exports = (bot, existingUserKeyboard) => {
         (lastName ? `👀 <b>Telegram Last Name:</b> ${lastName}\n` : "") +
         `\n<b>Xabar:</b> ${userMessage}`;
 
+      // Avval matn (yoki umumiy info) ni kanalga yuboramiz
       await bot.sendMessage(channelId, feedbackText, { parse_mode: "HTML" });
 
-      if (msg.voice) await bot.sendVoice(channelId, msg.voice.file_id);
-      if (msg.video) await bot.sendVideo(channelId, msg.video.file_id);
-      if (msg.video_note) await bot.sendVideoNote(channelId, msg.video_note.file_id);
+      // Foydalanuvchi rasm yuborgan bo'lsa:
+      if (msg.photo && msg.photo.length > 0) {
+        // eng yuqori aniqlikdagi rasmni olamiz (massivning oxirgi elementi)
+        const photoFileId = msg.photo[msg.photo.length - 1].file_id;
+        // Istasangiz caption qo'yishingiz yoki userMessage ni caption sifatida yuborishingiz mumkin
+        await bot.sendPhoto(channelId, photoFileId);
+      }
 
-      state.step = "main_menu";
-      return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Davom eting");
+      // Foydalanuvchi ovozli xabar yuborgan bo'lsa:
+      if (msg.voice) {
+        await bot.sendVoice(channelId, msg.voice.file_id);
+      }
+
+      // Foydalanuvchi video yuborgan bo'lsa:
+      if (msg.video) {
+        await bot.sendVideo(channelId, msg.video.file_id);
+      }
+
+      // Foydalanuvchi video note (dumaloq video) yuborgan bo'lsa:
+      if (msg.video_note) {
+        await bot.sendVideoNote(channelId, msg.video_note.file_id);
+      }
+
+      // Ushbu xabardan keyin ham foydalanuvchi feedback rejimida qoladi:
+      return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Yana fikringiz bormi?");
     }
+
 
     // "🎁 Bonuslar"
     if (text === "🎁 Bonuslar") {
@@ -170,16 +192,17 @@ module.exports = (bot, existingUserKeyboard) => {
       try {
         const existingCustomers = await moysklad.findCustomerByPhone(searchPhone);
         if (existingCustomers && existingCustomers.length > 0) {
+          // Agar bazada shu telefon raqami mavjud bo‘lsa, ism mosligini tekshiramiz
           const matchingCustomer = existingCustomers.find(
             (customer) => customer.name.toLowerCase() === fullName.toLowerCase()
           );
           if (!matchingCustomer) {
             return bot.sendMessage(
               chatId,
-              "❗ Ushbu telefon raqam boshqa ism/familiyaga bog'langan. Iltimos, boshqa telefon raqamini kiriting yoki ro'yxatdan o'tgan bo'lsangiz /start buyrug'ini bosib qaytadan kirishingiz mumkin."
+              "❗ Ushbu telefon raqam boshqa ism/familiyaga bog'langan. Iltimos, boshqa telefon raqamini kiriting yoki ro'yxatdan o'tgan bo'lsangiz /start buyrug'ini bosing."
             );
           }
-          state.step = "verify_channel";
+          // Bu shart bajarilsa, keyingi bosqichga o‘tish uchun yangi mijoz yaratiladi
           try {
             await moysklad.createCustomer({
               name: fullName,
@@ -190,28 +213,44 @@ module.exports = (bot, existingUserKeyboard) => {
             console.error("Mijoz yaratishda xato:", error);
             return bot.sendMessage(chatId, "❗ Mijozni yaratishda xatolik yuz berdi. Qayta urinib ko'ring.");
           }
-          state.userCode = code;
-          state.phone = rawPhone;
-          state.fullName = fullName;
-          const requiredChannelUsername = "faskids";
-          return bot.sendMessage(
-            chatId,
-            "📢 Davom etish uchun kanalga qo'shiling!",
-            {
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: "📲 Kanalga qo'shilish",
-                      url: `https://t.me/${requiredChannelUsername}`,
-                    },
-                  ],
-                  [{ text: "✅ Tekshirish", callback_data: "check_subscription" }],
-                ],
-              },
-            }
-          );
+        } else {
+          // Agar bazada shu telefon raqami mavjud bo'lmasa, demak foydalanuvchi yangidan ro'yhatdan o'tmoqda.
+          try {
+            await moysklad.createCustomer({
+              name: fullName,
+              phone: searchPhone,
+              code,
+            });
+          } catch (error) {
+            console.error("Yangi mijoz yaratishda xato:", error);
+            return bot.sendMessage(chatId, "❗ Mijozni yaratishda xatolik yuz berdi. Qayta urinib ko'ring.");
+          }
         }
+
+        state.step = "verify_channel";
+        state.userCode = code;
+        state.phone = rawPhone;
+        state.fullName = fullName;
+        // Kanalga qo'shilish bosqichi, masalan:
+        const requiredChannelUsername = "faskids";
+        return bot.sendMessage(
+          chatId,
+          "📢 Davom etish uchun kanalga qo'shiling!",
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "📲 Kanalga qo'shilish",
+                    url: `https://t.me/${requiredChannelUsername}`,
+                  },
+                ],
+                [{ text: "✅ Tekshirish", callback_data: "check_subscription" }],
+              ],
+            },
+          }
+        );
+
       } catch (error) {
         console.error("Moysklad qidiruv xatosi:", error);
         return bot.sendMessage(chatId, "❗ Telefon raqamini tekshirishda xatolik yuz berdi. Qayta urinib ko'ring.");
@@ -230,32 +269,48 @@ module.exports = (bot, existingUserKeyboard) => {
         "https://www.spot.uz/media/img/2020/12/3Z3MRs16070828252775_b.jpg",
         {
           caption: `<b>"Minor Mall"dagi fillialimiz.</b>\n\n` +
-                   `<b>Manzil:</b> Bolalar kasalxonasi ro'parasidagi  "Minor mall" 2-qavat \n` +
-                   `<b>Ish vaqti:</b> 09:30-23:00\n\n` +
-                   `<b>Telefon:</b> +998906376007\n` +
-                   `<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n` +
-                   `<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
+            `<b>Manzil:</b> Bolalar kasalxonasi ro'parasidagi "Minor mall" 2-qavat\n` +
+            `<b>Ish vaqti:</b> 09:30-23:00\n\n` +
+            `<b>Telefon:</b> +998906376007\n` +
+            `<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n` +
+            `<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
           parse_mode: "HTML"
         }
       );
+    
+      // Yandex maps URL: 
+      // https://yandex.com/maps?whatshere%5Bpoint%5D=64.430688%2C39.780488&whatshere%5Bzoom%5D=16.0&ll=64.43089781712835%2C39.77995002113143&z=16.0&si=316h6wcxg2uvc32r2aau36t564
+      // Koordinatalarni quyidagicha belgilaymiz (agar ushbu koordinatalar sizga mos kelsa):
+      const minorLatitude = 39.780488;
+      const minorLongitude = 64.430688;
+      await bot.sendLocation(chatId, minorLatitude, minorLongitude);
+    
       return bot.answerCallbackQuery(query.id);
     }
-
+    
     if (data === "branch_kitoblar") {
       await bot.sendPhoto(
         chatId,
         "https://avatars.mds.yandex.net/get-altay/4435487/2a0000017925b1a260c491fe511a4221a666/L_height",
         {
           caption: `<b>Zarafshon mehmonxonasi ro'parasidagi Buxoro kitoblar olamining 1-qavatida.</b>\n\n` +
-                   `<b>Manzil:</b> Buxoro kitoblar olami\n` +
-                   `<b>Ish vaqti:</b> 09:00-22:00\n\n` +
-                   `<b>Telefon:</b> +998906376007\n` +
-                   `<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n` +
-                   `<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
+            `<b>Manzil:</b> Alisher Navoi Avenue, 5\n` +
+            `<b>Ish vaqti:</b> 09:00-22:00\n\n` +
+            `<b>Telefon:</b> +998906376007\n` +
+            `<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n` +
+            `<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
           parse_mode: "HTML"
         }
       );
+    
+      // Yandex maps URL: 
+      // https://yandex.com/maps/org/232508939995?si=316h6wcxg2uvc32r2aau36t564
+      // Ushbu URLdan olinadigan koordinatalarni (masalan, Tashkent uchun) aniqlab kiritishingiz mumkin:
+      const kitoblarLatitude = 39.763188;   // misol uchun – iltimos, to‘g‘ri koordinatani kiriting
+      const kitoblarLongitude = 64.425435  // misol uchun – iltimos, to‘g‘ri koordinatani kiriting
+      await bot.sendLocation(chatId, kitoblarLatitude, kitoblarLongitude);
       return bot.answerCallbackQuery(query.id);
     }
+    
   });
 };

@@ -7,14 +7,15 @@ require("dotenv").config();
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
 const existingUserKeyboard = {
-  reply_markup: {
-    keyboard: [
-      ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
-      ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
-    ],
-    resize_keyboard: true,
-    one_time_keyboard: false,
-  },
+    reply_markup: {
+        keyboard: [
+            ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
+            ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
+            ["📞 Aloqa"],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false,
+    },
 };
 
 // Handlers
