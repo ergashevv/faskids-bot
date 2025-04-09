@@ -3,9 +3,13 @@ const { v4: uuidv4 } = require("uuid");
 const moysklad = require("../services/moysklad");
 const userStates = require("../userStates");
 const showBonusCard = require("../components/showBonusCard");
+const express = require("express");
 
-
-
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server ${PORT} portda ishlamoqda...`);
+});
 module.exports = (bot, existingUserKeyboard) => {
   // Bitta yagona message handler
   bot.on("message", async (msg) => {
