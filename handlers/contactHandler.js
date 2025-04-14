@@ -62,6 +62,26 @@ module.exports = (bot, existingUserKeyboard) => {
     }
     const state = userStates[chatId];
 
+    // /start buyruqini qayta ishlash:
+    // Agar foydalanuvchi allaqachon ro'yxatdan o'tgan bo'lsa,
+    // ya'ni, userStates[chatId].userCode mavjud bo'lsa, asosiy menyuga o'tamiz.
+    if (text === "/start") {
+      if (userStates[chatId] && userStates[chatId].userCode) {
+        return bot.sendMessage(
+          chatId,
+          "Salom, siz allaqachon ro'yxatdan o'tgansiz. Kerakli bo'limni tanlang:",
+          existingUserKeyboard
+        );
+      }
+      // Aks holda, yangi ro'yxatdan o'tish jarayonini boshlaymiz:
+      userStates[chatId] = { step: "get_name" };
+      return bot.sendMessage(
+        chatId,
+        "Xush kelibsiz! Iltimos, ismingizni yuboring.",
+        { reply_markup: { remove_keyboard: true } }
+      );
+    }
+
     // Global "Ortga" tugmasi:
     if (text === "🔙 Ortga") {
       state.step = "main_menu";
@@ -75,7 +95,7 @@ module.exports = (bot, existingUserKeyboard) => {
       if (!state.userCode) {
         return bot.sendMessage(
           chatId,
-          "❗ Siz hali ro‘yxatdan o‘tmagansiz. /start buyrug‘ini bosing."
+          "❗ Siz hali ro'yxatdan o'tmagansiz. /start buyrug'ini bosing."
         );
       }
       return showBonusCard(bot, chatId, state.userCode);
@@ -88,7 +108,7 @@ module.exports = (bot, existingUserKeyboard) => {
       }
     }
 
-    // "🏢 Filliallar ro‘yxati"
+    // "🏢 Filliallar ro'yxati"
     if (text === "🏢 Filliallar ro‘yxati") {
       const inlineKeyboard = {
         inline_keyboard: [
@@ -214,7 +234,6 @@ module.exports = (bot, existingUserKeyboard) => {
       try {
         const existingCustomers = await moysklad.findCustomerByPhone(searchPhone);
         if (existingCustomers && existingCustomers.length > 0) {
-          // Agar bazada shu telefon raqami mavjud bo‘lsa, ism mosligini tekshiramiz
           customer = existingCustomers.find(
             (cust) => cust.name.toLowerCase() === fullName.toLowerCase()
           );
@@ -325,15 +344,11 @@ module.exports = (bot, existingUserKeyboard) => {
     const chatId = msg.chat.id;
     const text = msg.text?.trim();
 
-    // Faqat /broadcast komandasini qayta ishlaymiz
     if (text && text.startsWith("/broadcast")) {
-      // Foydalanuvchining admin ekanligini tekshiramiz
       if (!adminIds.includes(msg.from.id)) {
         return bot.sendMessage(chatId, "Sizga bu buyruqni bajarish uchun ruxsat yo'q.");
       }
 
-      // Komandani parchalab olib, argument sifatida post id va kanal chat id (agar kerak bo'lsa) ni olamiz.
-      // Masalan: "/broadcast 123" deb yuborilsa, bu yerda 123 - kanal postining message_id si.
       const parts = text.split(" ");
       if (parts.length < 2) {
         return bot.sendMessage(chatId, "Iltimos, '/broadcast <message_id>' formatida yuboring.");
@@ -343,13 +358,9 @@ module.exports = (bot, existingUserKeyboard) => {
         return bot.sendMessage(chatId, "Xato: message_id son ko‘rinishida bo‘lishi kerak.");
       }
 
-      // Kanal chat id sini doimiy (ya'ni, reklama kanalingiz) sifatida belgilaymiz, misol uchun:
-      const channelChatId = process.env.REKLAMA_CHANNEL_CHAT_ID || "-1001316855543"; // o'zingizga mos kanal chat id
-
-      // Foydalanuvchilarning chat idlarini olish. Bu yerda sizning userStates yoki bazangizdan olinishi mumkin.
+      const channelChatId = process.env.REKLAMA_CHANNEL_CHAT_ID || "-1001316855543";
       const allUserChatIds = Object.keys(userStates);
 
-      // Har bir foydalanuvchiga forwarding qilamiz
       allUserChatIds.forEach((userChatId) => {
         bot.forwardMessage(userChatId, channelChatId, channelMessageId)
           .catch((error) => {
