@@ -2,7 +2,7 @@
 const { v4: uuidv4 } = require("uuid");
 const TelegramBot = require("node-telegram-bot-api");
 require("dotenv").config();
-require("./handlers/bonusHandler")(bot);
+
 const express = require("express");
 const mongoose = require("mongoose");
 
@@ -47,7 +47,7 @@ app.listen(PORT, () => {
 // ===== TELEGRAM BOT =====
 // E’tibor bering: faqat bitta bot instansiyasi polling qilsin
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
-
+require("./handlers/bonusHandler")(bot);
 // Administratorlar ro'yxati (telegram user ID-lari)
 const adminIds = [5737309471];
 
