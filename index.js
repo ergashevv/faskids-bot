@@ -100,7 +100,7 @@ bot.onText(/\/start/, async (msg) => {
   if (state.userCode) {
     state.step = "main_menu";
     await state.save();
-    return bot.sendMessage(chatId, "Siz allaqachon ro'yxatdan o'tgansiz. Asosiy menyu:", getUserMenu(isAdmin));
+    return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
   }
   state.step = "get_name";
   await state.save();
