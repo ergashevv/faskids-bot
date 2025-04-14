@@ -2,6 +2,7 @@
 const { v4: uuidv4 } = require("uuid");
 const TelegramBot = require("node-telegram-bot-api");
 require("dotenv").config();
+require("./handlers/bonusHandler")(bot);
 const express = require("express");
 const mongoose = require("mongoose");
 

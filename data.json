@@ -1,0 +1,470 @@
+{
+    "context": {
+        "employee": {
+            "meta": {
+                "href": "https://api.moysklad.ru/api/remap/1.2/context/employee",
+                "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/employee/metadata",
+                "type": "employee",
+                "mediaType": "application/json"
+            }
+        }
+    },
+    "meta": {
+        "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty?filter=phone=998930788047",
+        "type": "counterparty",
+        "mediaType": "application/json",
+        "size": 4,
+        "limit": 1000,
+        "offset": 0
+    },
+    "rows": [
+        {
+            "meta": {
+                "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/42ca0dcf-191e-11f0-0a80-0c67007c4906",
+                "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata",
+                "type": "counterparty",
+                "mediaType": "application/json",
+                "uuidHref": "https://online.moysklad.ru/app/#company/edit?id=42ca0dcf-191e-11f0-0a80-0c67007c4906"
+            },
+            "id": "42ca0dcf-191e-11f0-0a80-0c67007c4906",
+            "accountId": "5d4f3900-cdab-11ef-0a80-198400042653",
+            "owner": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/employee/5da684ed-cdab-11ef-0a80-022b005db772",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/employee/metadata",
+                    "type": "employee",
+                    "mediaType": "application/json",
+                    "uuidHref": "https://online.moysklad.ru/app/#employee/edit?id=5da684ed-cdab-11ef-0a80-022b005db772"
+                }
+            },
+            "shared": false,
+            "group": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/group/5d4fb4d3-cdab-11ef-0a80-198400042654",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/group/metadata",
+                    "type": "group",
+                    "mediaType": "application/json"
+                }
+            },
+            "updated": "2025-04-14 13:50:20.869",
+            "name": "Ergashev Pulat",
+            "code": "TG-ba5f8fa3",
+            "externalCode": "01HBhDkGgflDT6IfG3jj72",
+            "archived": false,
+            "created": "2025-04-14 13:50:20.869",
+            "companyType": "legal",
+            "phone": "998930788047",
+            "attributes": [
+                {
+                    "meta": {
+                        "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata/attributes/c89e7e37-13a9-11f0-0a80-0e8e00776132",
+                        "type": "attributemetadata",
+                        "mediaType": "application/json"
+                    },
+                    "id": "c89e7e37-13a9-11f0-0a80-0e8e00776132",
+                    "name": "bonusBalance",
+                    "type": "long",
+                    "value": 0
+                }
+            ],
+            "accounts": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/42ca0dcf-191e-11f0-0a80-0c67007c4906/accounts",
+                    "type": "account",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "tags": [
+                "накопительный бонус"
+            ],
+            "contactpersons": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/42ca0dcf-191e-11f0-0a80-0c67007c4906/contactpersons",
+                    "type": "contactperson",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "notes": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/42ca0dcf-191e-11f0-0a80-0c67007c4906/notes",
+                    "type": "note",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "state": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata/states/5e1aceb8-cdab-11ef-0a80-022b005db7e3",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata",
+                    "type": "state",
+                    "mediaType": "application/json"
+                }
+            },
+            "salesAmount": 0.0,
+            "bonusProgram": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/bonusprogram/65b3c335-dd5c-11ef-0a80-10d4000a19a3",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/bonusprogram/metadata",
+                    "type": "bonusprogram",
+                    "mediaType": "application/json",
+                    "uuidHref": "https://online.moysklad.ru/app/#discount/edit?id=65b3c335-dd5c-11ef-0a80-10d4000a19a3"
+                }
+            },
+            "bonusPoints": 0,
+            "files": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/42ca0dcf-191e-11f0-0a80-0c67007c4906/files",
+                    "type": "files",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            }
+        },
+        {
+            "meta": {
+                "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/47fb519e-191f-11f0-0a80-196a007d4167",
+                "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata",
+                "type": "counterparty",
+                "mediaType": "application/json",
+                "uuidHref": "https://online.moysklad.ru/app/#company/edit?id=47fb519e-191f-11f0-0a80-196a007d4167"
+            },
+            "id": "47fb519e-191f-11f0-0a80-196a007d4167",
+            "accountId": "5d4f3900-cdab-11ef-0a80-198400042653",
+            "owner": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/employee/5da684ed-cdab-11ef-0a80-022b005db772",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/employee/metadata",
+                    "type": "employee",
+                    "mediaType": "application/json",
+                    "uuidHref": "https://online.moysklad.ru/app/#employee/edit?id=5da684ed-cdab-11ef-0a80-022b005db772"
+                }
+            },
+            "shared": false,
+            "group": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/group/5d4fb4d3-cdab-11ef-0a80-198400042654",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/group/metadata",
+                    "type": "group",
+                    "mediaType": "application/json"
+                }
+            },
+            "updated": "2025-04-14 13:57:39.058",
+            "name": "Ergashev Pulat",
+            "code": "TG-aeb4d7fc",
+            "externalCode": "U-11dlK6iQvPGXHXsSv1n3",
+            "archived": false,
+            "created": "2025-04-14 13:57:39.058",
+            "companyType": "legal",
+            "phone": "998930788047",
+            "attributes": [
+                {
+                    "meta": {
+                        "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata/attributes/c89e7e37-13a9-11f0-0a80-0e8e00776132",
+                        "type": "attributemetadata",
+                        "mediaType": "application/json"
+                    },
+                    "id": "c89e7e37-13a9-11f0-0a80-0e8e00776132",
+                    "name": "bonusBalance",
+                    "type": "long",
+                    "value": 0
+                }
+            ],
+            "accounts": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/47fb519e-191f-11f0-0a80-196a007d4167/accounts",
+                    "type": "account",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "tags": [
+                "накопительный бонус"
+            ],
+            "contactpersons": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/47fb519e-191f-11f0-0a80-196a007d4167/contactpersons",
+                    "type": "contactperson",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "notes": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/47fb519e-191f-11f0-0a80-196a007d4167/notes",
+                    "type": "note",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "state": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata/states/5e1aceb8-cdab-11ef-0a80-022b005db7e3",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata",
+                    "type": "state",
+                    "mediaType": "application/json"
+                }
+            },
+            "salesAmount": 0.0,
+            "bonusProgram": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/bonusprogram/65b3c335-dd5c-11ef-0a80-10d4000a19a3",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/bonusprogram/metadata",
+                    "type": "bonusprogram",
+                    "mediaType": "application/json",
+                    "uuidHref": "https://online.moysklad.ru/app/#discount/edit?id=65b3c335-dd5c-11ef-0a80-10d4000a19a3"
+                }
+            },
+            "bonusPoints": 0,
+            "files": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/47fb519e-191f-11f0-0a80-196a007d4167/files",
+                    "type": "files",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            }
+        },
+        {
+            "meta": {
+                "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/59ef2b50-1965-11f0-0a80-0db80001bc9f",
+                "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata",
+                "type": "counterparty",
+                "mediaType": "application/json",
+                "uuidHref": "https://online.moysklad.ru/app/#company/edit?id=59ef2b50-1965-11f0-0a80-0db80001bc9f"
+            },
+            "id": "59ef2b50-1965-11f0-0a80-0db80001bc9f",
+            "accountId": "5d4f3900-cdab-11ef-0a80-198400042653",
+            "owner": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/employee/5da684ed-cdab-11ef-0a80-022b005db772",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/employee/metadata",
+                    "type": "employee",
+                    "mediaType": "application/json",
+                    "uuidHref": "https://online.moysklad.ru/app/#employee/edit?id=5da684ed-cdab-11ef-0a80-022b005db772"
+                }
+            },
+            "shared": false,
+            "group": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/group/5d4fb4d3-cdab-11ef-0a80-198400042654",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/group/metadata",
+                    "type": "group",
+                    "mediaType": "application/json"
+                }
+            },
+            "updated": "2025-04-14 22:19:13.952",
+            "name": "Ergashev Pulat",
+            "code": "TG-3977aaaf",
+            "externalCode": "p25uSOO0jWVuPbo0KbPtC0",
+            "archived": false,
+            "created": "2025-04-14 22:19:13.952",
+            "companyType": "legal",
+            "phone": "998930788047",
+            "attributes": [
+                {
+                    "meta": {
+                        "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata/attributes/c89e7e37-13a9-11f0-0a80-0e8e00776132",
+                        "type": "attributemetadata",
+                        "mediaType": "application/json"
+                    },
+                    "id": "c89e7e37-13a9-11f0-0a80-0e8e00776132",
+                    "name": "bonusBalance",
+                    "type": "long",
+                    "value": 0
+                }
+            ],
+            "accounts": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/59ef2b50-1965-11f0-0a80-0db80001bc9f/accounts",
+                    "type": "account",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "tags": [
+                "накопительный бонус"
+            ],
+            "contactpersons": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/59ef2b50-1965-11f0-0a80-0db80001bc9f/contactpersons",
+                    "type": "contactperson",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "notes": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/59ef2b50-1965-11f0-0a80-0db80001bc9f/notes",
+                    "type": "note",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "state": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata/states/5e1aceb8-cdab-11ef-0a80-022b005db7e3",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata",
+                    "type": "state",
+                    "mediaType": "application/json"
+                }
+            },
+            "salesAmount": 0.0,
+            "bonusProgram": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/bonusprogram/65b3c335-dd5c-11ef-0a80-10d4000a19a3",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/bonusprogram/metadata",
+                    "type": "bonusprogram",
+                    "mediaType": "application/json",
+                    "uuidHref": "https://online.moysklad.ru/app/#discount/edit?id=65b3c335-dd5c-11ef-0a80-10d4000a19a3"
+                }
+            },
+            "bonusPoints": 0,
+            "files": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/59ef2b50-1965-11f0-0a80-0db80001bc9f/files",
+                    "type": "files",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            }
+        },
+        {
+            "meta": {
+                "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/63b6c089-191c-11f0-0a80-09c9007deaea",
+                "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata",
+                "type": "counterparty",
+                "mediaType": "application/json",
+                "uuidHref": "https://online.moysklad.ru/app/#company/edit?id=63b6c089-191c-11f0-0a80-09c9007deaea"
+            },
+            "id": "63b6c089-191c-11f0-0a80-09c9007deaea",
+            "accountId": "5d4f3900-cdab-11ef-0a80-198400042653",
+            "owner": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/employee/5da684ed-cdab-11ef-0a80-022b005db772",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/employee/metadata",
+                    "type": "employee",
+                    "mediaType": "application/json",
+                    "uuidHref": "https://online.moysklad.ru/app/#employee/edit?id=5da684ed-cdab-11ef-0a80-022b005db772"
+                }
+            },
+            "shared": false,
+            "group": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/group/5d4fb4d3-cdab-11ef-0a80-198400042654",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/group/metadata",
+                    "type": "group",
+                    "mediaType": "application/json"
+                }
+            },
+            "updated": "2025-04-14 13:36:57.116",
+            "name": "Ergashev Pulat",
+            "code": "TG-2e6765df",
+            "externalCode": "ytHXIXnsj2gFaiGPstTa50",
+            "archived": false,
+            "created": "2025-04-14 13:36:57.116",
+            "companyType": "legal",
+            "phone": "998930788047",
+            "attributes": [
+                {
+                    "meta": {
+                        "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata/attributes/c89e7e37-13a9-11f0-0a80-0e8e00776132",
+                        "type": "attributemetadata",
+                        "mediaType": "application/json"
+                    },
+                    "id": "c89e7e37-13a9-11f0-0a80-0e8e00776132",
+                    "name": "bonusBalance",
+                    "type": "long",
+                    "value": 0
+                }
+            ],
+            "accounts": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/63b6c089-191c-11f0-0a80-09c9007deaea/accounts",
+                    "type": "account",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "tags": [
+                "накопительный бонус"
+            ],
+            "contactpersons": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/63b6c089-191c-11f0-0a80-09c9007deaea/contactpersons",
+                    "type": "contactperson",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "notes": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/63b6c089-191c-11f0-0a80-09c9007deaea/notes",
+                    "type": "note",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            },
+            "state": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata/states/5e1aceb8-cdab-11ef-0a80-022b005db7e3",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/metadata",
+                    "type": "state",
+                    "mediaType": "application/json"
+                }
+            },
+            "salesAmount": 0.0,
+            "bonusProgram": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/bonusprogram/65b3c335-dd5c-11ef-0a80-10d4000a19a3",
+                    "metadataHref": "https://api.moysklad.ru/api/remap/1.2/entity/bonusprogram/metadata",
+                    "type": "bonusprogram",
+                    "mediaType": "application/json",
+                    "uuidHref": "https://online.moysklad.ru/app/#discount/edit?id=65b3c335-dd5c-11ef-0a80-10d4000a19a3"
+                }
+            },
+            "bonusPoints": 0,
+            "files": {
+                "meta": {
+                    "href": "https://api.moysklad.ru/api/remap/1.2/entity/counterparty/63b6c089-191c-11f0-0a80-09c9007deaea/files",
+                    "type": "files",
+                    "mediaType": "application/json",
+                    "size": 0,
+                    "limit": 1000,
+                    "offset": 0
+                }
+            }
+        }
+    ]
+}
