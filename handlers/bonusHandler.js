@@ -1,4 +1,4 @@
-const UserState = require("../models/UserState");
+const UserState = require("../userStates");
 const moysklad = require("../services/moysklad");
 const showBonusCard = require("../components/showBonusCard");
 
