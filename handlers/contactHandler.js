@@ -10,6 +10,46 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portda ishlamoqda...`);
 });
+
+// Masalan, administratorlar ro'yxati (telegram user ID-lari)
+const adminIds = [5737309471]; // o'zingizga mos admin ID-larni qo'ying
+
+const applicationQuestions = [
+  { question: "📝 Avtobiografiya (F.I.Sh.):", answer: "" },
+  { question: "🎂 Tug‘ilgan sana:", answer: "" },
+  { question: "📍 Yashash manzilingiz:", answer: "" },
+  { question: "📞 Telefon raqamingiz:", answer: "" },
+  { question: "👨‍👩‍👧‍👦 Oilaviy holatingiz:", answer: "" },
+  { question: "🌐 Qanday xorijiy tillarni bilasiz?", answer: "" },
+  { question: "💻 Qanday kompyuter dasturlarini bilasiz?", answer: "" },
+  { question: "👪 Oilangiz haqida ma’lumot bering:", answer: "" },
+  { question: "🏢 Oxirgi ish joyingiz?", answer: "" },
+  {
+    question: "❓ Nima uchun oldingi ish joyingizdan bo‘shagansiz?",
+    answer: "",
+  },
+  { question: "💼 Nima uchun bu ish sizni qiziqtirmoqda?", answer: "" },
+  {
+    question:
+      "📢 Ish haqi haqida qayerdan bilib oldingiz? (OLX, Telegram, internetda, do‘stlaringiz, shu yerda ishlaganlar...)",
+    answer: "",
+  },
+  { question: "✅ Bu ishda nimalar sizni qoniqtirdi?", answer: "" },
+  {
+    question: "🧩 Xarakteringiz va qiziqishlaringiz haqida ma’lumot bering:",
+    answer: "",
+  },
+  { question: "🎯 Qanday ko‘nikmalarni puxta o‘zlashtirgansiz?", answer: "" },
+  { question: "🏆 Yutuqlaringiz:", answer: "" },
+  {
+    question:
+      "🚀 Qaysi yo‘nalishda ishda yutuqlaringiz bor? (SMM, Kassir, Buxgalteriya, Marketolog, Omborxona xodimi (WMS), Muvaffaqiyatli muhokama (Mushovi)...)",
+    answer: "",
+  },
+  { question: "❓ Nima uchun aynan shu yo‘nalishni tanladingiz?", answer: "" },
+  { question: "📝 Shu ishga qanday ma’lumot yozmoqchisiz?", answer: "" },
+];
+
 module.exports = (bot, existingUserKeyboard) => {
   // Bitta yagona message handler
   bot.on("message", async (msg) => {
@@ -48,7 +88,6 @@ module.exports = (bot, existingUserKeyboard) => {
       }
     }
 
-
     // "🏢 Filliallar ro‘yxati"
     if (text === "🏢 Filliallar ro‘yxati") {
       const inlineKeyboard = {
@@ -62,7 +101,6 @@ module.exports = (bot, existingUserKeyboard) => {
       });
     }
 
-    // "📞 Talab va taklif"
     // "📞 Talab va taklif"
     if (text === "📞 Talab va taklif") {
       state.feedbackMessages = [];
@@ -82,24 +120,19 @@ module.exports = (bot, existingUserKeyboard) => {
 
     // Feedback branch
     if (state.step === "collect_feedback") {
-      // Agar foydalanuvchi "🔙 Ortga" tugmasini bosmasa, demak feedback davom etadi.
-      // Shuning uchun "🔙 Ortga" bosilgandagina asosiy menyuga qaytamiz:
       if (text === "🔙 Ortga") {
         state.step = "main_menu";
         return bot.sendMessage(chatId, "Asosiy menyu:", existingUserKeyboard);
       }
 
-      // Aks holda — foydalanuvchi xoh matn, xoh media yuborsin — kanalingizga forward qilinadi:
       const channelId = "-1002689337016"; // o'z kanal IDingiz
       const username = msg.from.username ? `@${msg.from.username}` : "(username yo'q)";
       const firstName = msg.from.first_name || "(ismi yo'q)";
       const lastName = msg.from.last_name || "";
       const fullName = state.fullName || "(Ro'yxatdagi ism yo'q)";
       const phone = state.phone || "(Telefon yo'q)";
-      // msg.text bo'lmasa, userMessage'ga e'tibor berilmaydi. Lekin matn bo'lsa chiqarib yuboriladi:
       const userMessage = text || "(Matnli xabar yo'q)";
 
-      // Kanaldagi matn formati:
       const feedbackText =
         `📝 Yangi murojaat:\n` +
         `👤 <b>Foydalanuvchi:</b> ${fullName}\n` +
@@ -109,36 +142,24 @@ module.exports = (bot, existingUserKeyboard) => {
         (lastName ? `👀 <b>Telegram Last Name:</b> ${lastName}\n` : "") +
         `\n<b>Xabar:</b> ${userMessage}`;
 
-      // Avval matn (yoki umumiy info) ni kanalga yuboramiz
       await bot.sendMessage(channelId, feedbackText, { parse_mode: "HTML" });
 
-      // Foydalanuvchi rasm yuborgan bo'lsa:
       if (msg.photo && msg.photo.length > 0) {
-        // eng yuqori aniqlikdagi rasmni olamiz (massivning oxirgi elementi)
         const photoFileId = msg.photo[msg.photo.length - 1].file_id;
-        // Istasangiz caption qo'yishingiz yoki userMessage ni caption sifatida yuborishingiz mumkin
         await bot.sendPhoto(channelId, photoFileId);
       }
-
-      // Foydalanuvchi ovozli xabar yuborgan bo'lsa:
       if (msg.voice) {
         await bot.sendVoice(channelId, msg.voice.file_id);
       }
-
-      // Foydalanuvchi video yuborgan bo'lsa:
       if (msg.video) {
         await bot.sendVideo(channelId, msg.video.file_id);
       }
-
-      // Foydalanuvchi video note (dumaloq video) yuborgan bo'lsa:
       if (msg.video_note) {
         await bot.sendVideoNote(channelId, msg.video_note.file_id);
       }
 
-      // Ushbu xabardan keyin ham foydalanuvchi feedback rejimida qoladi:
       return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Yana fikringiz bormi?");
     }
-
 
     // "🎁 Bonuslar"
     if (text === "🎁 Bonuslar") {
@@ -150,9 +171,6 @@ module.exports = (bot, existingUserKeyboard) => {
     }
 
     if (text === "💼 Ishga kirish") {
-      // Biz bu yerda savollarni *shu botda* berish o‘rniga, 
-      // foydalanuvchini *boshqa* faskidsjob_bot ga yo‘naltiramiz.
-      // Masalan:
       return bot.sendMessage(
         chatId,
         "Ishga kirish uchun quyidagi botga o‘ting va arizani to‘ldiring:\n👉 https://t.me/faskidsjob_bot \n\n☎️ Qo‘shimcha ma’lumot uchun @faskidsuz_admin bilan bog‘laning.",
@@ -185,80 +203,71 @@ module.exports = (bot, existingUserKeyboard) => {
       );
     }
 
-    // "get_phone" bosqichi:
+    // "get_phone" bosqichi: (O'zgartirishlar shu yerda)
     if (msg.contact && state.step === "get_phone") {
       const rawPhone = msg.contact.phone_number;
       const fullName = state.fullName?.trim() || "(Ism yo'q)";
-      const code = `TG-${uuidv4().slice(0, 8)}`;
       const normalizedPhone = rawPhone.replace(/\D/g, "").replace(/^998/, "");
       const searchPhone = `998${normalizedPhone}`;
 
+      let customer;
       try {
         const existingCustomers = await moysklad.findCustomerByPhone(searchPhone);
         if (existingCustomers && existingCustomers.length > 0) {
           // Agar bazada shu telefon raqami mavjud bo‘lsa, ism mosligini tekshiramiz
-          const matchingCustomer = existingCustomers.find(
-            (customer) => customer.name.toLowerCase() === fullName.toLowerCase()
+          customer = existingCustomers.find(
+            (cust) => cust.name.toLowerCase() === fullName.toLowerCase()
           );
-          if (!matchingCustomer) {
+          if (!customer) {
             return bot.sendMessage(
               chatId,
               "❗ Ushbu telefon raqam boshqa ism/familiyaga bog'langan. Iltimos, boshqa telefon raqamini kiriting yoki ro'yxatdan o'tgan bo'lsangiz /start buyrug'ini bosing."
             );
           }
-          // Bu shart bajarilsa, keyingi bosqichga o‘tish uchun yangi mijoz yaratiladi
-          try {
-            await moysklad.createCustomer({
-              name: fullName,
-              phone: searchPhone,
-              code,
-            });
-          } catch (error) {
-            console.error("Mijoz yaratishda xato:", error);
-            return bot.sendMessage(chatId, "❗ Mijozni yaratishda xatolik yuz berdi. Qayta urinib ko'ring.");
-          }
-        } else {
-          // Agar bazada shu telefon raqami mavjud bo'lmasa, demak foydalanuvchi yangidan ro'yhatdan o'tmoqda.
-          try {
-            await moysklad.createCustomer({
-              name: fullName,
-              phone: searchPhone,
-              code,
-            });
-          } catch (error) {
-            console.error("Yangi mijoz yaratishda xato:", error);
-            return bot.sendMessage(chatId, "❗ Mijozni yaratishda xatolik yuz berdi. Qayta urinib ko'ring.");
-          }
         }
-
-        state.step = "verify_channel";
-        state.userCode = code;
-        state.phone = rawPhone;
-        state.fullName = fullName;
-        // Kanalga qo'shilish bosqichi, masalan:
-        const requiredChannelUsername = "faskids";
-        return bot.sendMessage(
-          chatId,
-          "📢 Davom etish uchun kanalga qo'shiling!",
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: "📲 Kanalga qo'shilish",
-                    url: `https://t.me/${requiredChannelUsername}`,
-                  },
-                ],
-                [{ text: "✅ Tekshirish", callback_data: "check_subscription" }],
-              ],
-            },
-          }
-        );
-
       } catch (error) {
         console.error("Moysklad qidiruv xatosi:", error);
         return bot.sendMessage(chatId, "❗ Telefon raqamini tekshirishda xatolik yuz berdi. Qayta urinib ko'ring.");
       }
+
+      if (!customer) {
+        // Agar bazada shu telefon raqami topilmasa, yangi mijoz yaratamiz
+        const code = `TG-${uuidv4().slice(0, 8)}`;
+        try {
+          await moysklad.createCustomer({
+            name: fullName,
+            phone: searchPhone,
+            code,
+          });
+          customer = { code };
+        } catch (error) {
+          console.error("Yangi mijoz yaratishda xato:", error);
+          return bot.sendMessage(chatId, "❗ Mijozni yaratishda xatolik yuz berdi. Qayta urinib ko'ring.");
+        }
+      }
+
+      state.step = "verify_channel";
+      state.userCode = customer.code;
+      state.phone = rawPhone;
+      state.fullName = fullName;
+      const requiredChannelUsername = "faskids";
+      return bot.sendMessage(
+        chatId,
+        "📢 Davom etish uchun kanalga qo'shiling!",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "📲 Kanalga qo'shilish",
+                  url: `https://t.me/${requiredChannelUsername}`,
+                },
+              ],
+              [{ text: "✅ Tekshirish", callback_data: "check_subscription" }],
+            ],
+          },
+        }
+      );
     }
   });
 
@@ -281,21 +290,16 @@ module.exports = (bot, existingUserKeyboard) => {
           parse_mode: "HTML"
         }
       );
-    
-      // Yandex maps URL: 
-      // https://yandex.com/maps?whatshere%5Bpoint%5D=64.430688%2C39.780488&whatshere%5Bzoom%5D=16.0&ll=64.43089781712835%2C39.77995002113143&z=16.0&si=316h6wcxg2uvc32r2aau36t564
-      // Koordinatalarni quyidagicha belgilaymiz (agar ushbu koordinatalar sizga mos kelsa):
       const minorLatitude = 39.780488;
       const minorLongitude = 64.430688;
       await bot.sendLocation(chatId, minorLatitude, minorLongitude);
-    
       return bot.answerCallbackQuery(query.id);
     }
     
     if (data === "branch_kitoblar") {
       await bot.sendPhoto(
         chatId,
-        "https://avatars.mds.yandex.net/get-altay/4435487/2a0000017925b1a260c491fe511a4221a666/L_height",
+        "./images/image.jpg",
         {
           caption: `<b>Zarafshon mehmonxonasi ro'parasidagi Buxoro kitoblar olamining 1-qavatida.</b>\n\n` +
             `<b>Manzil:</b> Alisher Navoi Avenue, 5\n` +
@@ -306,15 +310,54 @@ module.exports = (bot, existingUserKeyboard) => {
           parse_mode: "HTML"
         }
       );
-    
-      // Yandex maps URL: 
-      // https://yandex.com/maps/org/232508939995?si=316h6wcxg2uvc32r2aau36t564
-      // Ushbu URLdan olinadigan koordinatalarni (masalan, Tashkent uchun) aniqlab kiritishingiz mumkin:
-      const kitoblarLatitude = 39.763188;   // misol uchun – iltimos, to‘g‘ri koordinatani kiriting
-      const kitoblarLongitude = 64.425435  // misol uchun – iltimos, to‘g‘ri koordinatani kiriting
+      const kitoblarLatitude = 39.763188;
+      const kitoblarLongitude = 64.425435;
       await bot.sendLocation(chatId, kitoblarLatitude, kitoblarLongitude);
       return bot.answerCallbackQuery(query.id);
     }
-    
+  });
+
+  // --- Yangi: Dynamic broadcast / reklama xabarini yuborish --- //
+
+  // Faqat administratorlarga mo'ljallangan
+  // Masalan, admin botga "/broadcast <message_id>" deb yozganda
+  bot.on("message", async (msg) => {
+    const chatId = msg.chat.id;
+    const text = msg.text?.trim();
+
+    // Faqat /broadcast komandasini qayta ishlaymiz
+    if (text && text.startsWith("/broadcast")) {
+      // Foydalanuvchining admin ekanligini tekshiramiz
+      if (!adminIds.includes(msg.from.id)) {
+        return bot.sendMessage(chatId, "Sizga bu buyruqni bajarish uchun ruxsat yo'q.");
+      }
+
+      // Komandani parchalab olib, argument sifatida post id va kanal chat id (agar kerak bo'lsa) ni olamiz.
+      // Masalan: "/broadcast 123" deb yuborilsa, bu yerda 123 - kanal postining message_id si.
+      const parts = text.split(" ");
+      if (parts.length < 2) {
+        return bot.sendMessage(chatId, "Iltimos, '/broadcast <message_id>' formatida yuboring.");
+      }
+      const channelMessageId = parseInt(parts[1], 10);
+      if (isNaN(channelMessageId)) {
+        return bot.sendMessage(chatId, "Xato: message_id son ko‘rinishida bo‘lishi kerak.");
+      }
+
+      // Kanal chat id sini doimiy (ya'ni, reklama kanalingiz) sifatida belgilaymiz, misol uchun:
+      const channelChatId = process.env.REKLAMA_CHANNEL_CHAT_ID || "-1001316855543"; // o'zingizga mos kanal chat id
+
+      // Foydalanuvchilarning chat idlarini olish. Bu yerda sizning userStates yoki bazangizdan olinishi mumkin.
+      const allUserChatIds = Object.keys(userStates);
+
+      // Har bir foydalanuvchiga forwarding qilamiz
+      allUserChatIds.forEach((userChatId) => {
+        bot.forwardMessage(userChatId, channelChatId, channelMessageId)
+          .catch((error) => {
+            console.error(`Xabar yuborishda xatolik (user: ${userChatId}):`, error);
+          });
+      });
+
+      return bot.sendMessage(chatId, "Reklama xabari barcha foydalanuvchilarga yuborildi.");
+    }
   });
 };
