@@ -12,32 +12,25 @@ module.exports = (bot) => {
         // 1. MongoDB’dan foydalanuvchi holatini olish
         const state = await UserState.findOne({ chatId });
         if (!state || !state.userCode) {
-          return bot.sendMessage(chatId, "❗ Siz hali ro'yxatdan o'tmagansiz. Iltimos, /start buyrug'ini bosing.");
+          return bot.sendMessage(chatId, "❗ You are not registered yet. Please press /start.");
         }
-
-        // 2. Moysklad API orqali foydalanuvchi bonus maʼlumotlarini olish
-        const customer = await moysklad.findCustomerByCode(state.userCode);
-        if (!customer) {
-          await bot.answerCallbackQuery(query.id, { text: "❌ Kontragent topilmadi", show_alert: true });
-          return;
-        }
-
-        // 3. Eski xabarni toʻliq o‘chirish
+        
+        // 2. Eski bonus xabarini majburiy ravishda o'chirish
         try {
           await bot.deleteMessage(chatId, query.message.message_id);
         } catch (deleteErr) {
-          console.error("Eski xabarni o'chirishda xatolik:", deleteErr.message);
-          // Xatolik bo'lsa ham, davom etamiz
+          console.error("Error deleting the previous message:", deleteErr.message);
+          // Agar xatolik yuz bersa, davom etamiz
         }
-
-        // 4. Yangi bonus kartani barcode bilan yuborish
+        
+        // 3. Yangi bonus kartani (barcode va caption bilan) yuborish
         await showBonusCard(bot, chatId, state.userCode);
-
-        // 5. Callback queryga javob
-        await bot.answerCallbackQuery(query.id, { text: "Balans yangilandi" });
+        
+        // 4. Callback queryga javob qaytarish
+        await bot.answerCallbackQuery(query.id, { text: "Balance updated" });
       } catch (error) {
-        console.error("Balansni yangilash xatosi:", error.message);
-        await bot.answerCallbackQuery(query.id, { text: "Xatolik yuz berdi" });
+        console.error("Error in check_balance callback:", error.message);
+        await bot.answerCallbackQuery(query.id, { text: "An error occurred" });
       }
     }
   });
