@@ -36,7 +36,7 @@ module.exports = (bot) => {
         });
         
         // 4. Yangi caption matni (to'liq o'zbek tilida)
-        const newCaption = `ℹ️ Har bir xaridingizdan 1% cashback olish uchun yuqoridagi shtrix-kodni kassirga taqdim eting.\n\n` +
+        const newCaption = `ℹ️ Har bir xaridingizdan 3% cashback olish uchun yuqoridagi shtrix-kodni kassirga taqdim eting.\n\n` +
                            `💰 ${formattedDate} holatiga ko'ra balansingiz: ${bonus} ball\n\n` +
                            `🧍‍♂️ Karta egasi: ${customer.name || "Nom berilmagan"}`;
 

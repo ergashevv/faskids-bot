@@ -28,7 +28,7 @@ module.exports = async function showBonusCard(bot, chatId, code) {
     });
 
     // Caption matni – lotin yozuvida
-    const caption = `ℹ️ Har bir xaridingizdan 1% kesbek olish uchun yuqoridagi shtrix-kodni kassirga taqdim eting.\n\n` +
+    const caption = `ℹ️ Har bir xaridingizdan 3% kesbek olish uchun yuqoridagi shtrix-kodni kassirga taqdim eting.\n\n` +
                     `💰 Sizning ${formattedDate} holatiga ko'ra balansingiz: ${bonus}\n\n` +
                     `🧍‍♂️ Karta egasi: ${fullName}`;
 
