@@ -9,12 +9,20 @@ const showBonusCard = require("./components/showBonusCard");
 const moysklad = require("./services/moysklad");
 
 // ===== MongoDB ULANISH VA MODEL =====
-// .env faylida toʻgʻri formatdagi URI kiritilsin:
-// Misol: mongodb+srv://edevzi:Pulotjon1234@faskids.obso50p.mongodb.net/myDatabase?retryWrites=true&w=majority&appName=Faskids
+
+// .env faylida MONGODB_URI ni toʻgʻri sozlang, masalan:
+// mongodb+srv://edevzi:Pulotjon1234@faskids.obso50p.mongodb.net/myDatabase?retryWrites=true&w=majority&appName=Faskids
 const mongoURI = process.env.MONGODB_URI;
+if (!mongoURI) {
+  console.error("MongoDB ulanish URI topilmadi. Iltimos, MONGODB_URI environment variable ni sozlang.");
+  process.exit(1);
+}
 mongoose.connect(mongoURI)
   .then(() => console.log("MongoDB ga ulandi"))
-  .catch((err) => console.error("MongoDB ulanish xatosi:", err));
+  .catch((err) => {
+    console.error("MongoDB ulanish xatosi:", err);
+    process.exit(1);
+});
 
 const userStateSchema = new mongoose.Schema({
   chatId: { type: Number, required: true, unique: true },
@@ -30,16 +38,16 @@ const UserState = mongoose.model("UserState", userStateSchema);
 
 // ===== EXPRESS SERVER =====
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portda ishlamoqda...`);
 });
 
 // ===== TELEGRAM BOT =====
+// E’tibor bering: faqat bitta bot instansiyasi polling qilsin
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
 // Administratorlar ro'yxati (telegram user ID-lari)
-// Agar admin bo'lgan foydalanuvchilarni qo'lda kiritasiz
 const adminIds = [5737309471];
 
 // 1) Oddiy foydalanuvchi menyusi
@@ -55,7 +63,7 @@ const regularUserKeyboard = {
   },
 };
 
-// 2) Admin menyusi – avtomatik tarzda admin bo'lganlarga qo'shimcha "📢 Reklama" tugmasi ko'rinadi
+// 2) Admin menyusi – admin bo'lganlarga qo'shimcha "📢 Reklama" tugmasi ko'rinadi
 const adminKeyboard = {
   reply_markup: {
     keyboard: [
@@ -68,12 +76,11 @@ const adminKeyboard = {
   },
 };
 
-// Funksiya: foydalanuvchi admin ekanligini tekshiradi va mos keyboard qaytaradi
 function getUserMenu(isAdmin) {
   return isAdmin ? adminKeyboard : regularUserKeyboard;
 }
 
-// Yordamchi funksiya: DB dan foydalanuvchi holatini olish yoki yaratish (upsert)
+// Yordamchi funksiya: DB dan foydalanuvchi holatini olish yoki yaratish (upsert usuli)
 async function getOrCreateUserState(chatId) {
   const state = await UserState.findOneAndUpdate(
     { chatId },
@@ -106,7 +113,7 @@ bot.on("message", async (msg) => {
   const state = await getOrCreateUserState(chatId);
   const isAdmin = adminIds.includes(msg.from.id);
 
-  // Global "🔙 Ortga" tugmasi: Asosiy menyuga qaytish
+  // Global "🔙 Ortga" tugmasi: Asosiy menyuga qaytish (adminlar uchun ham)
   if (text === "🔙 Ortga") {
     state.step = "main_menu";
     state.applicationData = {};
@@ -116,19 +123,19 @@ bot.on("message", async (msg) => {
   }
 
   // ===== ADMIN REKLAMA FUNKSIYASI =====
-  // Agar foydalanuvchi admin bo'lsa va menyuda "📢 Reklama" tugmasini bossa,
-  // bot admindan reklama xabarini qabul qilishi uchun step ni "admin_waiting_ad" ga o'rnatadi.
+  // Agar admin menyusida "📢 Reklama" tugmasi bosilsa,
+  // bot step ni "admin_waiting_ad" ga o'rnatadi va admindan reklama xabarini qabul qiladi.
   if (isAdmin && text === "📢 Reklama") {
     state.step = "admin_waiting_ad";
     await state.save();
-    return bot.sendMessage(chatId, "Iltimos, reklama xabaringizni yuboring. (Matn, foto, video, forward bo'lsa ham mayli)");
+    return bot.sendMessage(chatId, "Iltimos, reklama xabaringizni yuboring. (Matn, rasm, video, forward bo'lsa ham mayli)");
   }
 
-  // Agar admin "admin_waiting_ad" bosqichida bo'lsa, yuborgan xabarini barcha foydalanuvchilarga yuboramiz
+  // Agar admin "admin_waiting_ad" bosqichida bo'lsa,
+  // yuborgan xabarini barcha foydalanuvchilarga copyMessage orqali jo'natamiz.
   if (isAdmin && state.step === "admin_waiting_ad") {
     const allUsers = await UserState.find({}, "chatId");
     allUsers.forEach((user) => {
-      // copyMessage yordamida nusxalaymiz – forward bilan solishtirganda "forwarded from" yozuvi chiqmaydi
       bot.copyMessage(user.chatId, chatId, msg.message_id).catch((err) => {
         console.error(`Reklama yuborishda xatolik (user: ${user.chatId}):`, err);
       });
@@ -138,7 +145,7 @@ bot.on("message", async (msg) => {
     return bot.sendMessage(chatId, "✔ Reklama xabari barcha foydalanuvchilarga yuborildi.", getUserMenu(isAdmin));
   }
 
-  // Foydalanuvchilar uchun oddiy buyruqlar:
+  // Foydalanuvchilar uchun oddiy buyruqlar
   if (text === "📲 Jamg‘arma kartasi") {
     if (!state.userCode) {
       return bot.sendMessage(chatId, "❗ Siz hali ro'yxatdan o'tmagansiz. /start buyrug'ini bosing.");
@@ -180,7 +187,7 @@ bot.on("message", async (msg) => {
   if (text === "💼 Ishga kirish") {
     return bot.sendMessage(
       chatId,
-      "Ishga kirish uchun quyidagi botga o‘ting va arizani to‘ldiring:\n👉 https://t.me/faskidsjob_bot \n\n☎️ Qo‘shimcha ma’lumot uchun @faskidsuz_admin bilan bog‘laning.",
+      "Ishga kirish uchun quyidagi botga o‘ting va arizani to‘ldiring:\n👉 https://t.me/faskidsjob_bot\n\n☎️ Qo‘shimcha ma’lumot uchun @faskidsuz_admin bilan bog‘laning.",
       { reply_markup: { keyboard: [["🔙 Ortga"]], resize_keyboard: true } }
     );
   }
@@ -194,7 +201,8 @@ bot.on("message", async (msg) => {
     return bot.sendMessage(
       chatId,
       "📞 Endi telefon raqamingizni yuboring (masalan: +998901234567). Siz kontakt yoki oddiy matn shaklida yuborishingiz mumkin:",
-      { reply_markup: {
+      {
+        reply_markup: {
           keyboard: [
             [{ text: "📱 Telefon raqamni yuborish", request_contact: true }],
             ["🔙 Ortga"]
@@ -259,7 +267,8 @@ bot.on("message", async (msg) => {
     return bot.sendMessage(
       chatId,
       "📢 Davom etish uchun kanalga qo'shiling!",
-      { reply_markup: {
+      {
+        reply_markup: {
           inline_keyboard: [
             [{ text: "📲 Kanalga qo'shilish", url: `https://t.me/${requiredChannelUsername}` }],
             [{ text: "✅ Tekshirish", callback_data: "check_subscription" }]
@@ -356,12 +365,47 @@ bot.on("callback_query", async (query) => {
     }
   }
 
+  // Yangi: Balansni qayta tekshirish callbacki
+  if (data === "check_balance") {
+    try {
+      const customer = await moysklad.findCustomerByCode(state.userCode);
+      if (!customer) {
+        await bot.answerCallbackQuery(query.id, { text: "❌ Kontragent topilmadi", show_alert: true });
+        return;
+      }
+      const bonus = customer.bonusPoints || 0;
+      const phone = customer.phone;
+      await bot.editMessageCaption(
+        `💳 Sizning jamg‘arma kartangiz\n💰 Bonus: ${bonus} ball\n📞 Telefon: ${phone}`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔄 Balansni qayta tekshirish', callback_data: 'check_balance' }],
+            ]
+          },
+        }
+      );
+      await bot.answerCallbackQuery(query.id, { text: "Balans yangilandi" });
+    } catch (error) {
+      console.error("Balansni yangilashda xatolik:", error);
+      await bot.answerCallbackQuery(query.id, { text: "Xatolik yuz berdi" });
+    }
+  }
+
   if (data === "branch_minor") {
     await bot.sendPhoto(
       chatId,
       "https://www.spot.uz/media/img/2020/12/3Z3MRs16070828252775_b.jpg",
       {
-        caption: `<b>"Minor Mall"dagi fillialimiz.</b>\n\n<b>Manzil:</b> Bolalar kasalxonasi ro'parasidagi "Minor mall" 2-qavat\n<b>Ish vaqti:</b> 09:30-23:00\n\n<b>Telefon:</b> +998906376007\n<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
+        caption: `<b>"Minor Mall"dagi fillialimiz.</b>\n\n` +
+                 `<b>Manzil:</b> Bolalar kasalxonasi ro'parasidagi "Minor mall" 2-qavat\n` +
+                 `<b>Ish vaqti:</b> 09:30-23:00\n\n` +
+                 `<b>Telefon:</b> +998906376007\n` +
+                 `<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n` +
+                 `<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
         parse_mode: "HTML"
       }
     );
@@ -376,7 +420,12 @@ bot.on("callback_query", async (query) => {
       chatId,
       "./images/image.jpg",
       {
-        caption: `<b>Zarafshon mehmonxonasi ro'parasidagi Buxoro kitoblar olamining 1-qavatida.</b>\n\n<b>Manzil:</b> Alisher Navoi Avenue, 5\n<b>Ish vaqti:</b> 09:00-22:00\n\n<b>Telefon:</b> +998906376007\n<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
+        caption: `<b>Zarafshon mehmonxonasi ro'parasidagi Buxoro kitoblar olamining 1-qavatida.</b>\n\n` +
+                 `<b>Manzil:</b> Alisher Navoi Avenue, 5\n` +
+                 `<b>Ish vaqti:</b> 09:00-22:00\n\n` +
+                 `<b>Telefon:</b> +998906376007\n` +
+                 `<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n` +
+                 `<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
         parse_mode: "HTML"
       }
     );
@@ -384,5 +433,10 @@ bot.on("callback_query", async (query) => {
     const kitoblarLongitude = 64.425435;
     await bot.sendLocation(chatId, kitoblarLatitude, kitoblarLongitude);
     return bot.answerCallbackQuery(query.id);
+  }
+  
+  // Agar kerak bo'lsa, /broadcast komandasi ham adminlar uchun mavjud
+  if (data === "broadcast") {
+    // Agar /broadcast ni ishlatish istagi bo'lsa, uni avvalgi shaklda saqlab qo'yishingiz mumkin
   }
 });
