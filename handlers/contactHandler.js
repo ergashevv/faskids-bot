@@ -11,7 +11,7 @@ app.listen(PORT, () => {
   console.log(`Server ${PORT} portda ishlamoqda...`);
 });
 
-// Masalan, administratorlar ro'yxati (telegram user ID-lari)
+// Administratorlar ro'yxati (Telegram user ID-lari)
 const adminIds = [5737309471]; // o'zingizga mos admin ID-larni qo'ying
 
 const applicationQuestions = [
@@ -24,25 +24,17 @@ const applicationQuestions = [
   { question: "💻 Qanday kompyuter dasturlarini bilasiz?", answer: "" },
   { question: "👪 Oilangiz haqida ma’lumot bering:", answer: "" },
   { question: "🏢 Oxirgi ish joyingiz?", answer: "" },
-  {
-    question: "❓ Nima uchun oldingi ish joyingizdan bo‘shagansiz?",
-    answer: "",
-  },
+  { question: "❓ Nima uchun oldingi ish joyingizdan bo‘shagansiz?", answer: "" },
   { question: "💼 Nima uchun bu ish sizni qiziqtirmoqda?", answer: "" },
-  {
-    question:
+  { question:
       "📢 Ish haqi haqida qayerdan bilib oldingiz? (OLX, Telegram, internetda, do‘stlaringiz, shu yerda ishlaganlar...)",
     answer: "",
   },
   { question: "✅ Bu ishda nimalar sizni qoniqtirdi?", answer: "" },
-  {
-    question: "🧩 Xarakteringiz va qiziqishlaringiz haqida ma’lumot bering:",
-    answer: "",
-  },
+  { question: "🧩 Xarakteringiz va qiziqishlaringiz haqida ma’lumot bering:", answer: "" },
   { question: "🎯 Qanday ko‘nikmalarni puxta o‘zlashtirgansiz?", answer: "" },
   { question: "🏆 Yutuqlaringiz:", answer: "" },
-  {
-    question:
+  { question:
       "🚀 Qaysi yo‘nalishda ishda yutuqlaringiz bor? (SMM, Kassir, Buxgalteriya, Marketolog, Omborxona xodimi (WMS), Muvaffaqiyatli muhokama (Mushovi)...)",
     answer: "",
   },
@@ -56,31 +48,74 @@ module.exports = (bot, existingUserKeyboard) => {
     const chatId = msg.chat.id;
     const text = msg.text?.trim();
 
-    // Agar userStates[chatId] mavjud bo'lmasa, yarating:
+    // In-memory state mavjudligini ta'minlaymiz:
     if (!userStates[chatId]) {
       userStates[chatId] = {};
     }
     const state = userStates[chatId];
 
-    // /start buyruqini qayta ishlash:
-    // Agar foydalanuvchi allaqachon ro'yxatdan o'tgan bo'lsa,
-    // ya'ni, userStates[chatId].userCode mavjud bo'lsa, asosiy menyuga o'tamiz.
+    // --- /start Komandasi ---
+    // Bizning yechim: Agar foydalanuvchi allaqachon ro'yxatdan o'tgan bo'lsa,
+    // ya'ni, userStates[chatId].userCode mavjud, yoki Moyskladda shunday mijoz mavjud bo'lsa,
+    // unda /start bosilganda ro'yxatdan o'tish jarayoni qayta ishga tushmasdan, asosiy menyuga o'tilsin.
+    // Agar in-memory state mavjud bo'lmasa yoki userCode yo'q bo'lsa, yangi ro'yxat boshlansin.
     if (text === "/start") {
-      if (userStates[chatId] && userStates[chatId].userCode) {
+      // Birinchi: Agar in-memory state da userCode mavjud bo'lsa, demak foydalanuvchi ro'yxatdan o'tgan
+      if (state.userCode) {
         return bot.sendMessage(
           chatId,
           "Salom, siz allaqachon ro'yxatdan o'tgansiz. Kerakli bo'limni tanlang:",
           existingUserKeyboard
         );
       }
-      // Aks holda, yangi ro'yxatdan o'tish jarayonini boshlaymiz:
-      userStates[chatId] = { step: "get_name" };
-      return bot.sendMessage(
-        chatId,
-        "Xush kelibsiz! Iltimos, ismingizni yuboring.",
-        { reply_markup: { remove_keyboard: true } }
-      );
+      // Ikkinchi: Agar in-memory state yo'q yoki userCode mavjud emas, lekin foydalanuvchi oldingi registratsiyasini Moyskladda aniqlash mumkin
+      // Agar foydalanuvchi rostan ham ro'yxatdan o'tgan bo'lsa, uni telefon raqami orqali tekshirishingiz mumkin,
+      // lekin telefon raqami (va ism) avval yuborilgan bo'lishi kerak.
+      // Agar bu ma'lumotlar mavjud bo'lmasa, yangi ro'yxatdan o'tish jarayonini boshlaymiz.
+      if (!state.phone || !state.fullName) {
+        // Yangi ro'yxatdan o'tish
+        state.step = "get_name";
+        return bot.sendMessage(
+          chatId,
+          "Xush kelibsiz! Iltimos, ismingiz va familiyangizni yuboring.",
+          { reply_markup: { remove_keyboard: true } }
+        );
+      } else {
+        // Telefon va ism mavjud bo'lsa, Moyskladdan tekshiramiz
+        try {
+          const normalizedPhone = state.phone.replace(/\D/g, "").replace(/^998/, "");
+          const searchPhone = `998${normalizedPhone}`;
+          const existingCustomers = await moysklad.findCustomerByPhone(searchPhone);
+          if (existingCustomers && existingCustomers.length > 0) {
+            const customer = existingCustomers.find(
+              (cust) =>
+                cust.name.toLowerCase() === state.fullName.toLowerCase()
+            );
+            if (customer) {
+              // Agar mavjud mijoz topilsa, in-memory state ga yangilash
+              state.userCode = customer.code;
+              state.step = "verify_channel";
+              return bot.sendMessage(
+                chatId,
+                "Salom, siz allaqachon ro'yxatdan o'tgansiz. Kerakli bo'limni tanlang:",
+                existingUserKeyboard
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Moysklad aniqlash xatosi:", error);
+          // Xato bo'lsa, yangi ro'yxatdan o'tish jarayonini boshlaymiz
+        }
+        // Agar yuqoridagi tekshiruvdan o'tmasa, yangi ro'yxatdan o'tishni boshlaymiz
+        state.step = "get_name";
+        return bot.sendMessage(
+          chatId,
+          "Xush kelibsiz! Iltimos, ismingiz va familiyangizni yuboring.",
+          { reply_markup: { remove_keyboard: true } }
+        );
+      }
     }
+    // --- /start Tugadi ---
 
     // Global "Ortga" tugmasi:
     if (text === "🔙 Ortga") {
@@ -102,7 +137,10 @@ module.exports = (bot, existingUserKeyboard) => {
     }
     if (text === "📞 Aloqa") {
       if (!state.userCode) {
-        return bot.sendMessage(chatId, "❗ Siz ro'yxatdan o'tmagansiz. Iltimos, /start buyrug'ini bosib ro'yxatdan o'ting.");
+        return bot.sendMessage(
+          chatId,
+          "❗ Siz ro'yxatdan o'tmagansiz. Iltimos, /start buyrug'ini bosib ro'yxatdan o'ting."
+        );
       } else {
         return bot.sendMessage(chatId, "+998507266007");
       }
