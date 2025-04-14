@@ -1,4 +1,5 @@
-const UserState = require("../userStates.js");
+// helpers/state.js
+const UserState = require("../models/UserState");
 
 async function getOrCreateUserState(chatId) {
   const state = await UserState.findOneAndUpdate(

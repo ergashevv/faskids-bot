@@ -1,7 +1,14 @@
-// userStates.js
+// models/UserState.js
+const mongoose = require("mongoose");
 
-// Simple in-memory state management
-const userStates = {};
+const userStateSchema = new mongoose.Schema({
+  chatId: { type: Number, required: true, unique: true },
+  fullName: { type: String, default: "" },
+  phone: { type: String, default: "" },
+  userCode: { type: String, default: "" },
+  step: { type: String, default: "main_menu" },
+  feedbackMessages: { type: [String], default: [] },
+  applicationData: { type: Object, default: {} },
+}, { timestamps: true });
 
-module.exports = userStates;
-
+module.exports = mongoose.model("UserState", userStateSchema);
