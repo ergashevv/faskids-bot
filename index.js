@@ -49,7 +49,7 @@ const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 // lekin biz asosiy "check_balance" callback query ni index.js ichida boshqaramiz.
 
 // Administratorlar ro'yxati (telegram user ID-lari) – qo'lda kiritiladi
-const adminIds = [5737309471];
+const adminIds = [5737309471,523589911,537750824];
 
 // 1) Oddiy foydalanuvchi menyusi
 const regularUserKeyboard = {
