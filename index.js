@@ -48,7 +48,7 @@ app.listen(PORT, () => {
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
 // ADMINLAR RO'YXATI – o'zingizning admin telegram IDlaringizni kiriting
-const adminIds = [123123123, 5737309471]; // Masalan, admin IDlaringiz
+const adminIds = [537750824,523589911, 5737309471]; // Masalan, admin IDlaringiz
 
 // MENYU KEYBOARDLARI
 const regularUserKeyboard = {
