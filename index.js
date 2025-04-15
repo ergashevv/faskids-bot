@@ -9,8 +9,6 @@ const showBonusCard = require("./components/showBonusCard");
 const moysklad = require("./services/moysklad");
 
 // ===== MongoDB ULASH VA MODEL =====
-// .env faylda MONGODB_URI ni toʻgʻri sozlang, masalan:
-// mongodb+srv://foydalanuvchi:parol@faskids.obso50p.mongodb.net/myDatabase?retryWrites=true&w=majority&appName=Faskids
 const mongoURI = process.env.MONGODB_URI;
 if (!mongoURI) {
   console.error("MongoDB ulanish URI topilmadi. Iltimos, MONGODB_URI environment variable ni sozlang.");
@@ -21,10 +19,9 @@ mongoose.connect(mongoURI)
   .catch((err) => {
     console.error("MongoDB ulanish xatosi:", err);
     process.exit(1);
-});
+  });
 
-// UserState modeli – ilgarigi funksiyalar, feedback va ro'yxatdan o'tish uchun.
-// Eslatma: reklama postlarini boshqarish uchun ushbu modulda reklama xabarlarining (adMessages) saqlanishi Telegram kanaliga yuborilgan postlar bilan bog'liq havolani yaratishda admin kanal postiga havola sifatida ishlatiladi.
+// UserState modeli
 const userStateSchema = new mongoose.Schema({
   chatId: { type: Number, required: true, unique: true },
   fullName: { type: String, default: "" },
@@ -33,8 +30,6 @@ const userStateSchema = new mongoose.Schema({
   step: { type: String, default: "main_menu" },
   feedbackMessages: { type: [String], default: [] },
   applicationData: { type: Object, default: {} }
-  // Agar reklama postlarini user uchung ham id orqali nazorat qilmoqchi bo'lsangiz,
-  // qo'shimcha "adMessages" maydonini qo'shishingiz mumkin.
 }, { timestamps: true });
 const UserState = mongoose.model("UserState", userStateSchema);
 
@@ -46,10 +41,9 @@ app.listen(PORT, () => {
 });
 
 // ===== TELEGRAM BOT =====
-// Faqat bitta bot instansiyasi polling orqali ishlaydi
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
-// ADMINLAR RO'YXATI – o'zingizga mos admin telegram user ID'larini kiritishingiz kerak
+// Adminlar ro'yxati (o'zingizning admin IDlaringizni kiriting)
 const adminIds = [5737309471, 523589911, 537750824];
 
 // Foydalanuvchi menyusi
@@ -65,7 +59,7 @@ const regularUserKeyboard = {
   }
 };
 
-// Admin menyusi – qo'shimcha "📢 Reklama" tugmasi mavjud
+// Admin menyusi – qo'shimcha "📢 Reklama" tugmasi bilan
 const adminKeyboard = {
   reply_markup: {
     keyboard: [
@@ -82,7 +76,11 @@ function getUserMenu(isAdmin) {
   return isAdmin ? adminKeyboard : regularUserKeyboard;
 }
 
-// Yordamchi: DB (MongoDB) dan foydalanuvchi holatini olish yoki yaratish (upsert)
+// Reklama maʼlumotlarini bot xotirasida saqlash uchun global obyekt.
+// Strukturasi: { [adId]: { content: string, broadcast: { [chatId]: messageId } } }
+const adsRecord = {};
+
+// Yordamchi funktsiya: UserState ni olish yoki yaratish
 async function getOrCreateUserState(chatId) {
   const state = await UserState.findOneAndUpdate(
     { chatId },
@@ -115,13 +113,22 @@ bot.on("message", async (msg) => {
   const state = await getOrCreateUserState(chatId);
   const isAdmin = adminIds.includes(msg.from.id);
 
-  // Global: "🔙 Ortga" – asosiy menyuga qaytish
   if (text === "🔙 Ortga") {
     state.step = "main_menu";
-    state.applicationData = {};
-    state.feedbackMessages = [];
     await state.save();
     return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
+  }
+
+  // Admin uchun: "📢 Reklama" tugmasi, reklama menyusi ochiladi
+  if (isAdmin && text === "📢 Reklama") {
+    // Reklama bo‘limi uchun inline tugmalar:
+    const adMenu = {
+      inline_keyboard: [
+        [{ text: "📝 Yangi reklama yuborish", callback_data: "admin_new_ad" }]
+      ]
+    };
+    await bot.sendMessage(chatId, "Reklama bo'limi:\nAdmin, yangi reklama yuborish uchun tugmani bosing.", { reply_markup: adMenu });
+    return;
   }
 
   // Foydalanuvchi buyruqlari
@@ -155,22 +162,18 @@ bot.on("message", async (msg) => {
     });
   }
   if (text === "🎁 Bonuslar") {
-    return bot.sendMessage(chatId, "🎁 Bonuslar:\n1. Har 1000 so'm uchun 1 ball\n2. 100 ball – 10% chegirma\n3. 500 ball – 50% chegirma\n4. 1000 ball – 100% chegirma", {
-      reply_markup: getUserMenu(isAdmin).reply_markup
-    });
+    return bot.sendMessage(chatId, "🎁 Bonuslar:\n1. Har 1000 so'm uchun 1 ball\n2. 100 ball – 10% chegirma\n3. 500 ball – 50% chegirma\n4. 1000 ball – 100% chegirma", { reply_markup: getUserMenu(isAdmin).reply_markup });
   }
   if (text === "💼 Ishga kirish") {
-    return bot.sendMessage(chatId, "Iltimos, quyidagi botga o'ting va arizani to'ldiring:\n👉 https://t.me/faskidsjob_bot\n\n☎️ Qo'shimcha ma'lumot uchun @faskidsuz_admin", {
-      reply_markup: { keyboard: [["🔙 Ortga"]], resize_keyboard: true }
-    });
+    return bot.sendMessage(chatId, "Iltimos, quyidagi botga o'ting va arizani to'ldiring:\n👉 https://t.me/faskidsjob_bot\n\n☎️ Qo'shimcha ma'lumot uchun @faskidsuz_admin", { reply_markup: { keyboard: [["🔙 Ortga"]], resize_keyboard: true } });
   }
 
-  // Ro'yxatdan o'tish bosqichlari:
+  // Ro'yxatdan o'tish bosqichlari
   if (state.step === "get_name" && text && text !== "/start") {
     state.fullName = text;
     state.step = "get_phone";
     await state.save();
-    return bot.sendMessage(chatId, "📞 Iltimos, telefon raqamingizni yuboring (masalan: +998901234567). Siz kontakt yoki oddiy matn shaklida yuborishingiz mumkin.");
+    return bot.sendMessage(chatId, "📞 Iltimos, telefon raqamingizni yuboring (masalan: +998901234567) – kontakt yoki oddiy matn shaklida.");
   }
   if (state.step === "get_phone") {
     let rawPhone = "";
@@ -228,13 +231,12 @@ bot.on("message", async (msg) => {
       await state.save();
       return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
     }
-    const channelId = "-1002689337016"; // O'z kanal ID
+    const channelId = "-1002689337016";
     const username = msg.from.username ? `@${msg.from.username}` : "(Username mavjud emas)";
     const firstName = msg.from.first_name || "(Ism mavjud emas)";
     const lastName = msg.from.last_name || "";
     const fullNameFeedback = state.fullName || "(Ro'yxatdan ism mavjud emas)";
     const phone = state.phone || "(Telefon mavjud emas)";
-    const userMessage = text;
     const feedbackText =
       `📝 Yangi murojaat:\n` +
       `👤 <b>Foydalanuvchi:</b> ${fullNameFeedback}\n` +
@@ -242,7 +244,7 @@ bot.on("message", async (msg) => {
       `📱 <b>Telefon:</b> ${phone}\n` +
       `👀 <b>Telegram First Name:</b> ${firstName}\n` +
       (lastName ? `👀 <b>Telegram Last Name:</b> ${lastName}\n` : "") +
-      `\n<b>Xabar:</b> ${userMessage}`;
+      `\n<b>Xabar:</b> ${text}`;
     await bot.sendMessage(channelId, feedbackText, { parse_mode: "HTML" });
     if (msg.photo && msg.photo.length > 0) {
       await bot.sendPhoto(channelId, msg.photo[msg.photo.length - 1].file_id);
@@ -259,22 +261,27 @@ bot.on("message", async (msg) => {
     return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Yana fikringiz bormi?");
   }
 
-  // ==== ADMIN /broadcast HANDLER ====  
-  // Admin reklama postini, kanalga yuborilishini amalga oshirish – bu yerda reklama postini oddiy "/broadcast <reklama matni>" buyrug‘i orqali yuboramiz.
+  // ==== ADMIN /broadcast HANDLER ====
+  // Admin uchun: /broadcast buyrug‘i – reklama matnini yuborish.
+  // Bu yerda admin reklama postini oson yuboradi; adminga kiritish uchun message_id kerak emas.
   if (text && text.startsWith("/broadcast")) {
     if (!adminIds.includes(msg.from.id)) {
-      return bot.sendMessage(chatId, "Sizga bu buyruqni bajarish uchun ruxsat yo'q.");
+      return bot.sendMessage(chatId, "Sizga bu buyruqni bajarish huquqi yo'q.");
     }
-    // Bu yerda admin reklama postini kanalga yuboradi va foydalanuvchilarga havola ko'rsatiladi.
     const adText = text.substring("/broadcast".length).trim();
     if (!adText) {
-      return bot.sendMessage(chatId, "Iltimos, reklama matnini yuboring. Masalan: /broadcast Yangi reklama matni.");
+      return bot.sendMessage(chatId, "Iltimos, reklama matnini yuboring. Masalan: /broadcast Yangi reklama matni");
     }
     try {
-      const adChannelId = process.env.AD_CHANNEL_ID; // Misol: "@myadchannel"
+      // Reklamani maxsus kanalga yuboramiz (AD_CHANNEL_ID .env faylda belgilangan)
+      const adChannelId = process.env.AD_CHANNEL_ID;
+      if (!adChannelId) {
+        return bot.sendMessage(chatId, "Reklama kanalining IDsi aniqlanmagan.");
+      }
       const sentAd = await bot.sendMessage(adChannelId, adText, { parse_mode: "HTML" });
+      // Endi, reklama kanal postiga havola:
       const adLink = `https://t.me/${adChannelId.replace("@", "")}/${sentAd.message_id}`;
-      // Foydalanuvchilar uchun reklama havolasi tugmasi:
+      // Foydalanuvchilar uchun reklama havolasi bilan xabar yuboramiz:
       const inlineAdButton = {
         inline_keyboard: [
           [{ text: "Reklamani ko'rish", url: adLink }]
@@ -290,7 +297,7 @@ bot.on("message", async (msg) => {
           console.error(`Chat ${user.chatId} ga reklama yuborishda xato:`, e.message);
         }
       }
-      return bot.sendMessage(chatId, `Reklama ${count} foydalanuvchiga yuborildi.\nReklama havolasi: ${adLink}\nAdmin: Bu postni o'z Telegram kanalida tahrirlash yoki o'chirish mumkin, hamma foydalanuvchilar havola orqali so'nggi versiyani ko'radi.`);
+      return bot.sendMessage(chatId, `Reklama ${count} foydalanuvchiga yuborildi.\nHavola: ${adLink}\nEndi admin Telegram kanalida postni o'zgartirib (edit) yoki oʻchirib (delete) boshqarishi mumkin.`);
     } catch (err) {
       console.error("Broadcast xatosi:", err.message);
       return bot.sendMessage(chatId, "Reklama yuborishda xatolik yuz berdi.");
@@ -316,34 +323,19 @@ bot.on("callback_query", async (query) => {
       await state.save();
       return bot.sendMessage(chatId, "✔ Kanalga a'zo bo'ldingiz! Asosiy menyu:", getUserMenu(isAdmin));
     } catch (err) {
-      console.error("Kanal obunasini tekshirishda xato:", err);
+      console.error("Kanal obunasini tekshirish xatosi:", err);
       return bot.sendMessage(chatId, "Obuna tekshiruvida xatolik yuz berdi. Qayta urinib ko'ring.");
     }
   }
-
-  // Admin inline tugmasi "🔙 Ortga" uchun:
+  
+  // Admin inline tugmalari: Bizning yangi yechimda, reklama postlarini tahrirlash yoki o'chirish Telegram kanalidagi post orqali amalga oshadi
+  // Shuning uchun bot adminga ushbu tugmalar haqida xabar beradi va "Ortga" tugmasi bilan asosiy menyuga qaytadi.
   if (isAdmin && data === "admin_go_back") {
     await bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
     state.step = "main_menu";
     await state.save();
     return bot.sendMessage(chatId, "Asosiy menyu (admin):", getUserMenu(isAdmin));
   }
-
+  
   return bot.answerCallbackQuery(query.id);
-});
-
-// ==== ADMIN KONSOL BUYRUQLARI ====
-// Bu buyruqlar orqali admin o'z reklamasini tahrirlash yoki o'chirish imkoniyatiga ega bo'ladi.
-// Ushbu rejimda admin Telegram kanalida postini tahrirlashi yoki o'chirishi tavsiya etiladi.
-// Shu sababli, biz bu yerda foydalanuvchilarga reklama havolasi orqali ko'rsatilayotgan postga murojaat qilamiz.
-bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
-  const text = msg.text?.trim() || "";
-  if (!adminIds.includes(msg.from.id)) return;
-  // Endi admin "/edit_ad" yoki "/delete_ad" buyruqlarini o'zi kanal postini tahrir qilish yoki o'chirish orqali bajarsa, 
-  // foydalanuvchilarga yuborilgan reklama havolasi avtomatik yangilanadi. Shu sababli, biz bu yerda qo'shimcha kod kiritmaymiz.
-  // Agar zarur bo'lsa, adminga quyidagi xabarni yuborish mumkin:
-  if (text.startsWith("/edit_ad") || text.startsWith("/delete_ad")) {
-    return bot.sendMessage(chatId, "Iltimos, reklama postini tahrir yoki o'chirish uchun Telegram kanaliga o'ting.\nBu reklama kanal posti orqali boshqariladi va barcha foydalanuvchilarga havola orqali ko'rsatiladi.");
-  }
 });
