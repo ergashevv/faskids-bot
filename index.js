@@ -5,24 +5,26 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 
+// Import modullar
 const showBonusCard = require("./components/showBonusCard");
 const moysklad = require("./services/moysklad");
+const Ad = require("./models/Ad");
 
-// ===== MongoDB ULANISH VA MODEL =====
-// .env faylida MONGODB_URI ni toʻgʻri sozlang, masalan:
-// mongodb+srv://edevzi:Pulotjon1234@faskids.obso50p.mongodb.net/myDatabase?retryWrites=true&w=majority&appName=Faskids
+// ===== MongoDB ga ULASH =====
 const mongoURI = process.env.MONGODB_URI;
 if (!mongoURI) {
-  console.error("MongoDB ulanish URI topilmadi. Iltimos, MONGODB_URI environment variable ni sozlang.");
+  console.error("MongoDB ulanish URI topilmadi. Iltimos, MONGODB_URI ni sozlang.");
   process.exit(1);
 }
+
 mongoose.connect(mongoURI)
   .then(() => console.log("MongoDB ga ulandi"))
   .catch((err) => {
     console.error("MongoDB ulanish xatosi:", err);
     process.exit(1);
-});
+  });
 
+// ===== UserState MODEL =====
 const userStateSchema = new mongoose.Schema({
   chatId: { type: Number, required: true, unique: true },
   fullName: { type: String, default: "" },
@@ -32,26 +34,23 @@ const userStateSchema = new mongoose.Schema({
   feedbackMessages: { type: [String], default: [] },
   applicationData: { type: Object, default: {} },
 }, { timestamps: true });
+
 const UserState = mongoose.model("UserState", userStateSchema);
 
 // ===== EXPRESS SERVER =====
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portda ishlamoqda...`);
 });
 
 // ===== TELEGRAM BOT =====
-// E’tibor bering: faqat bitta bot instansiyasi polling qilsin
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
-// BONUS_HANDLER modulini ham index.js dan chaqirish mumkin,
-// lekin biz asosiy "check_balance" callback query ni index.js ichida boshqaramiz.
+// ADMINLAR RO'YXATI – o'zingizning admin telegram IDlaringizni kiriting
+const adminIds = [123123123, 5737309471]; // Masalan, admin IDlaringiz
 
-// Administratorlar ro'yxati (telegram user ID-lari) – qo'lda kiritiladi
-const adminIds = [5737309471,523589911,537750824];
-
-// 1) Oddiy foydalanuvchi menyusi
+// MENYU KEYBOARDLARI
 const regularUserKeyboard = {
   reply_markup: {
     keyboard: [
@@ -60,11 +59,9 @@ const regularUserKeyboard = {
       ["📞 Aloqa"],
     ],
     resize_keyboard: true,
-    one_time_keyboard: false,
   },
 };
 
-// 2) Admin menyusi – adminlar uchun qo'shimcha "📢 Reklama" tugmasi kiritiladi
 const adminKeyboard = {
   reply_markup: {
     keyboard: [
@@ -73,7 +70,6 @@ const adminKeyboard = {
       ["📞 Aloqa", "📢 Reklama"],
     ],
     resize_keyboard: true,
-    one_time_keyboard: false,
   },
 };
 
@@ -81,7 +77,6 @@ function getUserMenu(isAdmin) {
   return isAdmin ? adminKeyboard : regularUserKeyboard;
 }
 
-// Yordamchi funksiya: DB dan foydalanuvchi holatini olish yoki yaratish (upsert usuli)
 async function getOrCreateUserState(chatId) {
   const state = await UserState.findOneAndUpdate(
     { chatId },
@@ -91,12 +86,87 @@ async function getOrCreateUserState(chatId) {
   return state;
 }
 
+/** 
+ * Inline tugma matnlarini qayta ishlash:
+ * Yangi qatorlar olib tashlanadi, trim qilinadi va maksimal 30 belgi olinadi.
+ */
+function sanitizeButtonText(text) {
+  if (!text) return "";
+  return text.normalize("NFC").replace(/[\r\n]+/g, " ").trim().slice(0, 30);
+}
+
+/** 
+ * Sana formatlash: kun/oy/yil soat:minut 
+ */
+function formatDate(date) {
+  const d = new Date(date);
+  const day = d.getDate().toString().padStart(2, "0");
+  const month = (d.getMonth() + 1).toString().padStart(2, "0");
+  const year = d.getFullYear();
+  const hours = d.getHours().toString().padStart(2, "0");
+  const minutes = d.getMinutes().toString().padStart(2, "0");
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+}
+
+/**
+ * Reklama ro'yxatini ko'rsatish funksiyasi
+ * Har bir reklamaning tugma matnida reklama yaratilgan sanasi ham ko'rsatiladi.
+ */
+async function showAdList(chatId, isAdmin) {
+  const ads = await Ad.find().sort({ createdAt: -1 });
+  if (ads.length === 0) {
+    const adMenu = {
+      inline_keyboard: [
+        [{ text: "➕ Yangi reklama", callback_data: "ad_new" }],
+        [{ text: "Ortga", callback_data: "admin_back" }]
+      ]
+    };
+    return bot.sendMessage(chatId, "Hozircha reklamalar mavjud emas.\n➕ Yangi reklama qo'shish:", { reply_markup: adMenu });
+  } else {
+    const inlineRows = ads.map((ad) => {
+      let shortText = "";
+      if (ad.media) {
+        if (ad.media.type === "photo") {
+          shortText = "[RASM] ";
+        } else if (ad.media.type === "video") {
+          shortText = "[VIDEO] ";
+        }
+        if (ad.media.caption) {
+          shortText += ad.media.caption;
+        } else if (ad.originalText) {
+          shortText += ad.originalText;
+        } else {
+          shortText += "(Matn yo'q)";
+        }
+      } else {
+        shortText = ad.originalText || "(Matn yo'q)";
+      }
+      // Qo'shimcha: yaratilgan sanani qo'shamiz
+      const created = formatDate(ad.createdAt);
+      shortText += ` (${created})`;
+
+      // Tugma matni uchun sanitasiyadan o'tkazamiz
+      shortText = sanitizeButtonText(shortText) || "(Matn yo'q)";
+      return [{
+        text: shortText,
+        callback_data: `ad_detail_${ad.adId}`
+      }];
+    });
+
+    inlineRows.push([{ text: "➕ Yangi reklama", callback_data: "ad_new" }]);
+    inlineRows.push([{ text: "Ortga", callback_data: "admin_back" }]);
+    const adMenu = { inline_keyboard: inlineRows };
+
+    return bot.sendMessage(chatId, "Mavjud reklamalar ro'yxati:", { reply_markup: adMenu });
+  }
+}
+
 // ===== /start HANDLER =====
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   let state = await getOrCreateUserState(chatId);
   const isAdmin = adminIds.includes(msg.from.id);
-
+  
   if (state.userCode) {
     state.step = "main_menu";
     await state.save();
@@ -104,46 +174,29 @@ bot.onText(/\/start/, async (msg) => {
   }
   state.step = "get_name";
   await state.save();
-  return bot.sendMessage(chatId, "👋 Ismingiz va familiyangizni yuboring (masalan: Sa`dullayev Quvonchbek):");
+  return bot.sendMessage(chatId, "👋 Iltimos, ismingiz va familiyangizni yuboring (masalan: Abdullayev John).");
 });
 
-// ===== ASOSIY MESSAGE HANDLER =====
+// ===== MESSAGE HANDLER =====
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text || "";
   const state = await getOrCreateUserState(chatId);
   const isAdmin = adminIds.includes(msg.from.id);
 
-  // Global "🔙 Ortga" tugmasi: Asosiy menyuga qaytish (ham foydalanuvchi, ham admin)
+  // Global "🔙 Ortga" tugmasi – asosiy menyuga qaytish
   if (text === "🔙 Ortga") {
     state.step = "main_menu";
-    state.applicationData = {};
-    state.feedbackMessages = [];
     await state.save();
     return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
   }
 
-  // ==== ADMIN REKLAMA FUNKSIYASI ====
-  // Agar admin "📢 Reklama" tugmasini bosgan bo'lsa, reklama xabarini qabul qilish uchun step ni "admin_waiting_ad" ga o'tkazamiz.
+  // Agar admin "📢 Reklama" tugmasini bosganda (reply keyboard orqali)
   if (isAdmin && text === "📢 Reklama") {
-    state.step = "admin_waiting_ad";
-    await state.save();
-    return bot.sendMessage(chatId, "Iltimos, reklama xabaringizni yuboring. (Matn, rasm, video, forward bo'lsa ham mayli)");
-  }
-  // Agar admin "admin_waiting_ad" bosqichida bo'lsa, yuborgan xabarini copyMessage orqali barcha foydalanuvchilarga yuboramiz.
-  if (isAdmin && state.step === "admin_waiting_ad") {
-    const allUsers = await UserState.find({}, "chatId");
-    allUsers.forEach((user) => {
-      bot.copyMessage(user.chatId, chatId, msg.message_id).catch((err) => {
-        console.error(`Reklama yuborishda xatolik (user: ${user.chatId}):`, err);
-      });
-    });
-    state.step = "main_menu";
-    await state.save();
-    return bot.sendMessage(chatId, "✔ Reklama xabari barcha foydalanuvchilarga yuborildi.", getUserMenu(isAdmin));
+    return showAdList(chatId, isAdmin);
   }
 
-  // ==== Foydalanuvchi Buyruqlari ====
+  // Foydalanuvchi menyusi:
   if (text === "📲 Jamg‘arma kartasi") {
     if (!state.userCode) {
       return bot.sendMessage(chatId, "❗ Siz hali ro'yxatdan o'tmagansiz. /start buyrug'ini bosing.");
@@ -152,7 +205,7 @@ bot.on("message", async (msg) => {
   }
   if (text === "📞 Aloqa") {
     if (!state.userCode) {
-      return bot.sendMessage(chatId, "❗ Siz ro'yxatdan o'tmagansiz. Iltimos, /start buyrug'ini bosib ro'yxatdan o'ting.");
+      return bot.sendMessage(chatId, "❗ Ro'yxatdan o'tmagansiz. Iltimos, /start buyrug'ini bosing.");
     }
     return bot.sendMessage(chatId, "+998507266007");
   }
@@ -165,54 +218,53 @@ bot.on("message", async (msg) => {
     };
     return bot.sendMessage(chatId, "Qaysi filialni tanlaysiz?", { reply_markup: inlineKeyboard });
   }
+  if (text === "💼 Ishga kirish") {
+    return bot.sendMessage(
+      chatId,
+      "Iltimos, quyidagi botga o'ting va arizani to'ldiring:\n👉 https://t.me/faskidsjob_bot\n\nQo'shimcha ma'lumot uchun @faskidsuz_admin bilan bog'laning.",
+      {
+        reply_markup: {
+          keyboard: [["🔙 Ortga"]],
+          resize_keyboard: true
+        }
+      }
+    );
+  }
   if (text === "📞 Talab va taklif") {
-    state.feedbackMessages = [];
     state.step = "collect_feedback";
     await state.save();
     return bot.sendMessage(
       chatId,
-      "✍️ Fikringizni matn, ovozli yoki video xabar shaklida yuboring. (Rasm ham yuborishingiz mumkin.)",
-      { reply_markup: { keyboard: [["🔙 Ortga"]], resize_keyboard: true, one_time_keyboard: false } }
-    );
-  }
-  if (text === "🎁 Bonuslar") {
-    return bot.sendMessage(
-      chatId,
-      "🎁 Bonuslar bo'yicha ma'lumotlar:\n\n1. Har 1000 so'm uchun 1 ball.\n2. 100 ball to'planganda 10% chegirma.\n3. 500 ball to'planganda 50% chegirma.\n4. 1000 ball to'planganda 100% chegirma.",
-      { reply_markup: getUserMenu(isAdmin).reply_markup }
-    );
-  }
-  if (text === "💼 Ishga kirish") {
-    return bot.sendMessage(
-      chatId,
-      "Ishga kirish uchun quyidagi botga o‘ting va arizani to‘ldiring:\n👉 https://t.me/faskidsjob_bot\n\n☎️ Qo‘shimcha ma’lumot uchun @faskidsuz_admin bilan bog‘laning.",
-      { reply_markup: { keyboard: [["🔙 Ortga"]], resize_keyboard: true } }
+      "✍️ Iltimos, talab yoki taklifingizni matn, ovoz, video yoki rasm shaklida yuboring.",
+      {
+        reply_markup: {
+          keyboard: [["🔙 Ortga"]],
+          resize_keyboard: true
+        }
+      }
     );
   }
 
-  // ==== RO'YXATDAN O'TISH BOSQICHLARI ====
-  // (1) Ism va familiya so'raladigan bosqich
+  // Ro'yxatdan o'tish steplari:
   if (state.step === "get_name" && text && text !== "/start") {
     state.fullName = text;
     state.step = "get_phone";
     await state.save();
     return bot.sendMessage(
       chatId,
-      "📞 Endi telefon raqamingizni yuboring (masalan: +998901234567). Siz kontakt yoki oddiy matn shaklida yuborishingiz mumkin:",
+      "📞 Iltimos, telefon raqamingizni yuboring (masalan: +998901234567).",
       {
         reply_markup: {
           keyboard: [
             [{ text: "📱 Telefon raqamni yuborish", request_contact: true }],
-            ["🔙 Ortga"],
+            ["🔙 Ortga"]
           ],
           resize_keyboard: true,
-          one_time_keyboard: true,
-        },
+          one_time_keyboard: true
+        }
       }
     );
   }
-
-  // (2) Telefon raqamini qabul qiladigan bosqich
   if (state.step === "get_phone") {
     let rawPhone = "";
     if (msg.contact && msg.contact.phone_number) {
@@ -233,10 +285,7 @@ bot.on("message", async (msg) => {
           (cust) => cust.name.toLowerCase() === fullName.toLowerCase()
         );
         if (!customer) {
-          return bot.sendMessage(
-            chatId,
-            "❗ Ushbu telefon raqam boshqa ism/familiyaga bog'langan. Iltimos, boshqa telefon raqamini kiriting yoki /start buyrug'ini bosing."
-          );
+          return bot.sendMessage(chatId, "❗ Ushbu telefon raqam boshqa ism/familiyaga bog'langan. Iltimos, boshqa telefon raqamini kiriting yoki /start ni bosing.");
         }
       }
     } catch (error) {
@@ -276,77 +325,151 @@ bot.on("message", async (msg) => {
     );
   }
 
-  // ==== FEEDBACK BOSQICHI ====
+  // Feedback bosqichi (Talab va taklif)
   if (state.step === "collect_feedback") {
     if (text === "🔙 Ortga") {
       state.step = "main_menu";
       await state.save();
       return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
     }
-    const channelId = "-1002689337016"; // O'z kanal ID
+    const feedbackChannel = process.env.FEEDBACK_GROUP_ID || "-1000000000000";
     const username = msg.from.username ? `@${msg.from.username}` : "(username yo'q)";
-    const firstName = msg.from.first_name || "(ismi yo'q)";
+    const firstName = msg.from.first_name || "(Ism yo'q)";
     const lastName = msg.from.last_name || "";
-    const fullNameFeedback = state.fullName || "(Ro'yxatdagi ism yo'q)";
-    const phone = state.phone || "(Telefon yo'q)";
-    const userMessage = text || "(Matnli xabar yo'q)";
     const feedbackText =
-      `📝 Yangi murojaat:\n` +
-      `👤 <b>Foydalanuvchi:</b> ${fullNameFeedback}\n` +
+      `📝 Yangi talab/taklif:\n` +
+      `👤 <b>Foydalanuvchi:</b> ${state.fullName}\n` +
       `💡 <b>Username:</b> ${username}\n` +
-      `📱 <b>Telefon:</b> ${phone}\n` +
-      `👀 <b>Telegram First Name:</b> ${firstName}\n` +
-      (lastName ? `👀 <b>Telegram Last Name:</b> ${lastName}\n` : "") +
-      `\n<b>Xabar:</b> ${userMessage}`;
-    await bot.sendMessage(channelId, feedbackText, { parse_mode: "HTML" });
+      `📱 <b>Telefon:</b> ${state.phone}\n` +
+      `👀 <b>Ism:</b> ${firstName} ${lastName}\n\n` +
+      `<b>Xabar:</b> ${text}`;
+    await bot.sendMessage(feedbackChannel, feedbackText, { parse_mode: "HTML" });
     if (msg.photo && msg.photo.length > 0) {
       const photoFileId = msg.photo[msg.photo.length - 1].file_id;
-      await bot.sendPhoto(channelId, photoFileId);
+      await bot.sendPhoto(feedbackChannel, photoFileId);
     }
     if (msg.voice) {
-      await bot.sendVoice(channelId, msg.voice.file_id);
+      await bot.sendVoice(feedbackChannel, msg.voice.file_id);
     }
     if (msg.video) {
-      await bot.sendVideo(channelId, msg.video.file_id);
+      await bot.sendVideo(feedbackChannel, msg.video.file_id);
     }
     if (msg.video_note) {
-      await bot.sendVideoNote(channelId, msg.video_note.file_id);
+      await bot.sendVideoNote(feedbackChannel, msg.video_note.file_id);
     }
-    return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Yana fikringiz bormi?");
+    state.step = "main_menu";
+    await state.save();
+    return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Rahmat!", getUserMenu(isAdmin));
   }
 
-  // ==== ADMIN /broadcast HANDLER (oldingi /broadcast komandasi) ====
-  if (text && text.startsWith("/broadcast")) {
-    if (!adminIds.includes(msg.from.id)) {
-      return bot.sendMessage(chatId, "Sizga bu buyruqni bajarish uchun ruxsat yo'q.");
+  // Yangi reklama bosqichi (admin_creating_ad)
+  if (isAdmin && state.step === "admin_creating_ad") {
+    const newAdId = uuidv4();
+    let mediaData = null;
+    if (msg.photo && msg.photo.length > 0) {
+      mediaData = {
+        type: "photo",
+        media: msg.photo[msg.photo.length - 1].file_id,
+        caption: msg.caption || (msg.text || "")
+      };
+    } else if (msg.video) {
+      mediaData = {
+        type: "video",
+        media: msg.video.file_id,
+        caption: msg.caption || (msg.text || "")
+      };
     }
-    const parts = text.split(" ");
-    if (parts.length < 2) {
-      return bot.sendMessage(chatId, "Iltimos, '/broadcast <message_id>' formatida yuboring.");
-    }
-    const channelMessageId = parseInt(parts[1], 10);
-    if (isNaN(channelMessageId)) {
-      return bot.sendMessage(chatId, "Xato: message_id son ko‘rinishida bo‘lishi kerak.");
-    }
-    const channelChatId = process.env.REKLAMA_CHANNEL_CHAT_ID || "-1001316855543";
-    const allUsers = await UserState.find({}, "chatId");
-    allUsers.forEach((user) => {
-      bot.forwardMessage(user.chatId, channelChatId, channelMessageId)
-        .catch((error) => {
-          console.error(`Xabar yuborishda xatolik (user: ${user.chatId}):`, error);
-        });
+    const adDoc = new Ad({
+      adId: newAdId,
+      originalText: (msg.text || "").slice(0, 4096),
+      media: mediaData
     });
-    return bot.sendMessage(chatId, "Reklama xabari barcha foydalanuvchilarga yuborildi.");
+    await adDoc.save();
+    const allUsers = await UserState.find({}, { chatId: 1 });
+    for (const user of allUsers) {
+      try {
+        const sentMsg = await bot.copyMessage(user.chatId, chatId, msg.message_id);
+        adDoc.broadcastedMessages.set(String(user.chatId), sentMsg.message_id);
+      } catch (err) {
+        console.error(`Reklama yuborishda xato (chatId ${user.chatId}):`, err.message);
+      }
+    }
+    await adDoc.save();
+    state.step = "main_menu";
+    await state.save();
+    return bot.sendMessage(chatId, "✅ Yangi reklama barcha foydalanuvchilarga yuborildi.", getUserMenu(isAdmin));
+  }
+
+  // Reklama tahrirlash bosqichi (admin_editing_ad_<adId>)
+  if (isAdmin && state.step.startsWith("admin_editing_ad_")) {
+    const adId = state.step.replace("admin_editing_ad_", "");
+    const adDoc = await Ad.findOne({ adId });
+    if (!adDoc) {
+      state.step = "main_menu";
+      await state.save();
+      return bot.sendMessage(chatId, "Tahrirlash xatosi: reklama topilmadi.");
+    }
+    let newMedia = null;
+    if (msg.photo && msg.photo.length > 0) {
+      newMedia = {
+        type: "photo",
+        media: msg.photo[msg.photo.length - 1].file_id,
+        caption: msg.caption || (msg.text || "")
+      };
+    } else if (msg.video) {
+      newMedia = {
+        type: "video",
+        media: msg.video.file_id,
+        caption: msg.caption || (msg.text || "")
+      };
+    }
+    if (newMedia) {
+      adDoc.media = newMedia;
+      adDoc.originalText = newMedia.caption || "";
+    } else {
+      const newText = msg.text || "";
+      adDoc.originalText = newText.slice(0, 4096);
+      adDoc.media = null;
+    }
+    let totalEdited = 0;
+    for (const [uChatIdKey, messageId] of adDoc.broadcastedMessages.entries()) {
+      const uChatId = parseInt(uChatIdKey, 10);
+      try {
+        if (adDoc.media) {
+          await bot.editMessageMedia(
+            {
+              type: adDoc.media.type,
+              media: adDoc.media.media,
+              caption: adDoc.media.caption || ""
+            },
+            { chat_id: uChatId, message_id: messageId }
+          );
+        } else {
+          await bot.editMessageText(adDoc.originalText, {
+            chat_id: uChatId,
+            message_id: messageId
+          });
+        }
+        totalEdited++;
+      } catch (err) {
+        console.error(`Tahrirlashda xato: ChatID ${uChatId}, MsgId ${messageId}`, err.message);
+      }
+    }
+    await adDoc.save();
+    state.step = "main_menu";
+    await state.save();
+    return bot.sendMessage(chatId, `Reklama tahrirlandi. Jami ${totalEdited} xabar yangilandi.`, getUserMenu(isAdmin));
   }
 });
 
-// ==== CALLBACK QUERY HANDLER ====
+// ===== CALLBACK QUERY HANDLER =====
 bot.on("callback_query", async (query) => {
   const chatId = query.message.chat.id;
   const data = query.data;
   const state = await getOrCreateUserState(chatId);
   const isAdmin = adminIds.includes(query.from.id);
 
+  // Kanal obunasini tekshirish
   if (data === "check_subscription") {
     const channelUsername = "faskids";
     try {
@@ -363,70 +486,116 @@ bot.on("callback_query", async (query) => {
     }
   }
 
-  // Yangi: Balansni qayta tekshirish callbacki
-  if (data === "check_balance") {
-    try {
-      const customer = await moysklad.findCustomerByCode(state.userCode);
-      if (!customer) {
-        await bot.answerCallbackQuery(query.id, { text: "❌ Kontragent topilmadi", show_alert: true });
-        return;
+  // Filliallar ro'yxati callbacklari
+  if (data === "branch_minor") {
+    return bot.sendMessage(chatId, "FAS kids Minor: Toshkent shahridagi filial manzili ...");
+  }
+  if (data === "branch_kitoblar") {
+    return bot.sendMessage(chatId, "FAS kids Kitoblar Olami: Toshkent shahridagi filial manzili ...");
+  }
+
+  // ADMIN: "admin_back" – asosiy menyuga qaytish
+  if (data === "admin_back") {
+    try { await bot.deleteMessage(chatId, query.message.message_id); } catch (e) {}
+    return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
+  }
+
+  // CALLBACK: "📢 Reklama" – agar inline tugma sifatida yuborilsa
+  if (data === "📢 Reklama") {
+    return showAdList(chatId, isAdmin);
+  }
+
+  // Yangi reklama: "ad_new"
+  if (data === "ad_new") {
+    state.step = "admin_creating_ad";
+    await state.save();
+    try { await bot.deleteMessage(chatId, query.message.message_id); } catch (e) {}
+    return bot.sendMessage(chatId, "Yangi reklama xabaringizni yuboring (matn, rasm, video va hk.).");
+  }
+
+  // Reklama tafsilotlari: "ad_detail_<adId>"
+  if (data.startsWith("ad_detail_")) {
+    const adId = data.replace("ad_detail_", "");
+    const adDoc = await Ad.findOne({ adId });
+    if (!adDoc) {
+      return bot.sendMessage(chatId, "Ushbu reklama topilmadi yoki o'chirilgan bo'lishi mumkin.");
+    }
+    let detailText = "";
+    if (adDoc.media) {
+      if (adDoc.media.type === "photo") {
+        detailText += "[RASM] ";
+      } else if (adDoc.media.type === "video") {
+        detailText += "[VIDEO] ";
       }
-      const bonus = customer.bonusPoints || 0;
-      const phone = customer.phone;
-      const newCaption = `💳 Sizning jamg‘arma kartangiz\n💰 Bonus: ${bonus} ball\n📞 Telefon: ${phone}`;
-      await bot.editMessageCaption(newCaption, {
-        chat_id: chatId,
-        message_id: query.message.message_id,
-        parse_mode: "HTML",
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔄 Balansni qayta tekshirish', callback_data: 'check_balance' }],
-          ]
-        }
-      });
-      await bot.answerCallbackQuery(query.id, { text: "Balans yangilandi" });
-    } catch (error) {
-      if (error.response && error.response.description && error.response.description.includes("message is not modified")) {
-        await bot.answerCallbackQuery(query.id, { text: "Balans hozirgi qiymatda" });
-      } else {
-        console.error("Balansni yangilashda xatolik:", error);
-        await bot.answerCallbackQuery(query.id, { text: "Xatolik yuz berdi" });
+      detailText += adDoc.media.caption || adDoc.originalText || "(Matn yo'q)";
+    } else {
+      detailText += adDoc.originalText || "(Matn yo'q)";
+    }
+    // Sanani qo'shamiz
+    const created = formatDate(adDoc.createdAt);
+    detailText += `\n\nYaratilgan: ${created}`;
+    
+    const detailMenu = {
+      inline_keyboard: [
+        [
+          { text: "📝 Tahrirlash", callback_data: `ad_edit_${adId}` },
+          { text: "🗑 O‘chirish", callback_data: `ad_delete_${adId}` }
+        ],
+        [{ text: "Ortga", callback_data: "admin_back" }]
+      ]
+    };
+    return bot.editMessageText(
+      `Reklama:\n\n${detailText}\n\nQaysi amalni bajarasiz?`,
+      { chat_id: chatId, message_id: query.message.message_id, reply_markup: detailMenu }
+    );
+  }
+
+  // Reklama tahriri: "ad_edit_<adId>"
+  if (data.startsWith("ad_edit_")) {
+    const adId = data.replace("ad_edit_", "");
+    const adDoc = await Ad.findOne({ adId });
+    if (!adDoc) {
+      return bot.sendMessage(chatId, "Reklama topilmadi.");
+    }
+    state.step = `admin_editing_ad_${adId}`;
+    await state.save();
+    // Avvalgi reklamaning media yoki matnini ko'rsatamiz admin uchun
+    if (adDoc.media) {
+      if (adDoc.media.type === "photo") {
+        await bot.sendPhoto(chatId, adDoc.media.media, {
+          caption: adDoc.media.caption || "(Matn yo'q)"
+        });
+      } else if (adDoc.media.type === "video") {
+        await bot.sendVideo(chatId, adDoc.media.media, {
+          caption: adDoc.media.caption || "(Matn yo'q)"
+        });
+      }
+    } else {
+      await bot.sendMessage(chatId, "Hozirgi reklama matni:\n\n" + (adDoc.originalText || "(Matn yo'q)"));
+    }
+    try { await bot.deleteMessage(chatId, query.message.message_id); } catch (e) {}
+    return bot.sendMessage(chatId, "Yangi reklama matnini va/yoki media faylini yuboring. Agar faqat matn kiritilsa, rasm/video olib tashlanadi.");
+  }
+
+  // Reklama o'chirish: "ad_delete_<adId>"
+  if (data.startsWith("ad_delete_")) {
+    const adId = data.replace("ad_delete_", "");
+    const adDoc = await Ad.findOne({ adId });
+    if (!adDoc) {
+      return bot.sendMessage(chatId, "Reklama topilmadi.");
+    }
+    let totalDeleted = 0;
+    for (const [uChatIdKey, messageId] of adDoc.broadcastedMessages.entries()) {
+      const uChatId = parseInt(uChatIdKey, 10);
+      try {
+        await bot.deleteMessage(uChatId, messageId);
+        totalDeleted++;
+      } catch (err) {
+        console.error(`O'chirishda xato: ChatID ${uChatId}, MsgId ${messageId}`, err.message);
       }
     }
-  }
-  
-  if (data === "branch_minor") {
-    await bot.sendPhoto(
-      chatId,
-      "https://www.spot.uz/media/img/2020/12/3Z3MRs16070828252775_b.jpg",
-      {
-        caption: `<b>"Minor Mall"dagi fillialimiz.</b>\n\n<b>Manzil:</b> Bolalar kasalxonasi ro'parasidagi "Minor mall" 2-qavat\n<b>Ish vaqti:</b> 09:30-23:00\n\n<b>Telefon:</b> +998906376007\n<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
-        parse_mode: "HTML"
-      }
-    );
-    const minorLatitude = 39.780488;
-    const minorLongitude = 64.430688;
-    await bot.sendLocation(chatId, minorLatitude, minorLongitude);
-    return bot.answerCallbackQuery(query.id);
-  }
-  
-  if (data === "branch_kitoblar") {
-    await bot.sendPhoto(
-      chatId,
-      "./images/image.jpg",
-      {
-        caption: `<b>Zarafshon mehmonxonasi ro'parasidagi Buxoro kitoblar olamining 1-qavatida.</b>\n\n<b>Manzil:</b> Alisher Navoi Avenue, 5\n<b>Ish vaqti:</b> 09:00-22:00\n\n<b>Telefon:</b> +998906376007\n<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
-        parse_mode: "HTML"
-      }
-    );
-    const kitoblarLatitude = 39.763188;
-    const kitoblarLongitude = 64.425435;
-    await bot.sendLocation(chatId, kitoblarLatitude, kitoblarLongitude);
-    return bot.answerCallbackQuery(query.id);
-  }
-  
-  // Agar kerak bo'lsa, /broadcast komandasi ham adminlar uchun mavjud
-  if (data === "broadcast") {
-    // /broadcast kodini shu yerda saqlab qo'yishingiz mumkin.
+    await adDoc.deleteOne();
+    try { await bot.deleteMessage(chatId, query.message.message_id); } catch (e) {}
+    return bot.sendMessage(chatId, `Reklama o'chirildi. Jami ${totalDeleted} xabar o'chirildi.`, getUserMenu(isAdmin));
   }
 });
