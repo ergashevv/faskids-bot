@@ -458,7 +458,7 @@ bot.on("message", async (msg) => {
     await adDoc.save();
     state.step = "main_menu";
     await state.save();
-    return bot.sendMessage(chatId, `Reklama tahrirlandi. Jami ${totalEdited} xabar yangilandi.`, getUserMenu(isAdmin));
+    return bot.sendMessage(chatId, `Reklama tahrirlandi.`, getUserMenu(isAdmin));
   }
 });
 
@@ -596,6 +596,6 @@ bot.on("callback_query", async (query) => {
     }
     await adDoc.deleteOne();
     try { await bot.deleteMessage(chatId, query.message.message_id); } catch (e) {}
-    return bot.sendMessage(chatId, `Reklama o'chirildi. Jami ${totalDeleted} xabar o'chirildi.`, getUserMenu(isAdmin));
+    return bot.sendMessage(chatId, `Reklama o'chirildi.`, getUserMenu(isAdmin));
   }
 });
