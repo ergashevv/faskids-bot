@@ -5,11 +5,10 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 
-// Import modul va komponentlar
 const showBonusCard = require("./components/showBonusCard");
 const moysklad = require("./services/moysklad");
 
-// ===== MongoDB ULASH VA MODEL =====
+// ===== MongoDB ULANISH VA MODEL =====
 // .env faylida MONGODB_URI ni toʻgʻri sozlang, masalan:
 // mongodb+srv://edevzi:Pulotjon1234@faskids.obso50p.mongodb.net/myDatabase?retryWrites=true&w=majority&appName=Faskids
 const mongoURI = process.env.MONGODB_URI;
@@ -24,7 +23,6 @@ mongoose.connect(mongoURI)
     process.exit(1);
 });
 
-// UserState modeli – adMessages maydoni qo'shildi, bunda admin tomonidan yuborilgan reklama xabarlari message_idlari saqlanadi.
 const userStateSchema = new mongoose.Schema({
   chatId: { type: Number, required: true, unique: true },
   fullName: { type: String, default: "" },
@@ -33,7 +31,6 @@ const userStateSchema = new mongoose.Schema({
   step: { type: String, default: "main_menu" },
   feedbackMessages: { type: [String], default: [] },
   applicationData: { type: Object, default: {} },
-  adMessages: { type: [Number], default: [] } // Reklama xabarlari uchun
 }, { timestamps: true });
 const UserState = mongoose.model("UserState", userStateSchema);
 
@@ -45,11 +42,14 @@ app.listen(PORT, () => {
 });
 
 // ===== TELEGRAM BOT =====
-// Faqat bitta bot instansiyasi polling orqali ishlaydi
+// E’tibor bering: faqat bitta bot instansiyasi polling qilsin
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
-// ADMINLAR RO'YXATI – qo'lda kiritiladi
-const adminIds = [5737309471, 523589911, 537750824];
+// BONUS_HANDLER modulini ham index.js dan chaqirish mumkin,
+// lekin biz asosiy "check_balance" callback query ni index.js ichida boshqaramiz.
+
+// Administratorlar ro'yxati (telegram user ID-lari) – qo'lda kiritiladi
+const adminIds = [5737309471,523589911,537750824];
 
 // 1) Oddiy foydalanuvchi menyusi
 const regularUserKeyboard = {
@@ -64,7 +64,7 @@ const regularUserKeyboard = {
   },
 };
 
-// 2) Admin menyusi – admin uchun qo'shimcha "📢 Reklama" tugmasi mavjud
+// 2) Admin menyusi – adminlar uchun qo'shimcha "📢 Reklama" tugmasi kiritiladi
 const adminKeyboard = {
   reply_markup: {
     keyboard: [
@@ -81,7 +81,7 @@ function getUserMenu(isAdmin) {
   return isAdmin ? adminKeyboard : regularUserKeyboard;
 }
 
-// Yordamchi funksiya: DB (MongoDB) dan foydalanuvchi holatini olish yoki yaratish (upsert)
+// Yordamchi funksiya: DB dan foydalanuvchi holatini olish yoki yaratish (upsert usuli)
 async function getOrCreateUserState(chatId) {
   const state = await UserState.findOneAndUpdate(
     { chatId },
@@ -96,6 +96,7 @@ bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   let state = await getOrCreateUserState(chatId);
   const isAdmin = adminIds.includes(msg.from.id);
+
   if (state.userCode) {
     state.step = "main_menu";
     await state.save();
@@ -103,7 +104,7 @@ bot.onText(/\/start/, async (msg) => {
   }
   state.step = "get_name";
   await state.save();
-  return bot.sendMessage(chatId, "👋 Iltimos, ismingiz va familiyangizni yuboring (masalan: Abdullayev John).");
+  return bot.sendMessage(chatId, "👋 Ismingiz va familiyangizni yuboring (masalan: Sa`dullayev Quvonchbek):");
 });
 
 // ===== ASOSIY MESSAGE HANDLER =====
@@ -113,7 +114,7 @@ bot.on("message", async (msg) => {
   const state = await getOrCreateUserState(chatId);
   const isAdmin = adminIds.includes(msg.from.id);
 
-  // Global "🔙 Ortga" tugmasi: Asosiy menyuga qaytish
+  // Global "🔙 Ortga" tugmasi: Asosiy menyuga qaytish (ham foydalanuvchi, ham admin)
   if (text === "🔙 Ortga") {
     state.step = "main_menu";
     state.applicationData = {};
@@ -123,31 +124,26 @@ bot.on("message", async (msg) => {
   }
 
   // ==== ADMIN REKLAMA FUNKSIYASI ====
-  // Agar admin "📢 Reklama" tugmasini bossagina, reklama xabarini qabul qilish uchun step "admin_waiting_ad" ga o'tadi.
+  // Agar admin "📢 Reklama" tugmasini bosgan bo'lsa, reklama xabarini qabul qilish uchun step ni "admin_waiting_ad" ga o'tkazamiz.
   if (isAdmin && text === "📢 Reklama") {
     state.step = "admin_waiting_ad";
     await state.save();
-    return bot.sendMessage(chatId, "Iltimos, reklama xabaringizni yuboring. (Matn, rasm, video yoki forward bo'lsa ham)");
+    return bot.sendMessage(chatId, "Iltimos, reklama xabaringizni yuboring. (Matn, rasm, video, forward bo'lsa ham mayli)");
   }
-  // Agar admin "admin_waiting_ad" bosqichida bo'lsa, yuborgan xabarini barcha foydalanuvchilarga copyMessage orqali jo'natamiz.
+  // Agar admin "admin_waiting_ad" bosqichida bo'lsa, yuborgan xabarini copyMessage orqali barcha foydalanuvchilarga yuboramiz.
   if (isAdmin && state.step === "admin_waiting_ad") {
-    const allUsers = await UserState.find({}, "chatId adMessages");
-    for (const user of allUsers) {
-      try {
-        const sentMsg = await bot.copyMessage(user.chatId, chatId, msg.message_id);
-        // Har bir foydalanuvchining adMessages massiviga yuborilgan reklama xabarining message_id sini qo'shamiz
-        user.adMessages.push(sentMsg.message_id);
-        await user.save();
-      } catch (err) {
-        console.error(`Reklama yuborishda xatolik (chat: ${user.chatId}):`, err.message);
-      }
-    }
+    const allUsers = await UserState.find({}, "chatId");
+    allUsers.forEach((user) => {
+      bot.copyMessage(user.chatId, chatId, msg.message_id).catch((err) => {
+        console.error(`Reklama yuborishda xatolik (user: ${user.chatId}):`, err);
+      });
+    });
     state.step = "main_menu";
     await state.save();
     return bot.sendMessage(chatId, "✔ Reklama xabari barcha foydalanuvchilarga yuborildi.", getUserMenu(isAdmin));
   }
 
-  // ==== FOYDALANUVCHI BUYRUQLARI ====
+  // ==== Foydalanuvchi Buyruqlari ====
   if (text === "📲 Jamg‘arma kartasi") {
     if (!state.userCode) {
       return bot.sendMessage(chatId, "❗ Siz hali ro'yxatdan o'tmagansiz. /start buyrug'ini bosing.");
@@ -175,7 +171,7 @@ bot.on("message", async (msg) => {
     await state.save();
     return bot.sendMessage(
       chatId,
-      "✍️ Iltimos, fikringizni matn, ovozli yoki video xabar shaklida yuboring. (Rasm ham yuborishingiz mumkin.)",
+      "✍️ Fikringizni matn, ovozli yoki video xabar shaklida yuboring. (Rasm ham yuborishingiz mumkin.)",
       { reply_markup: { keyboard: [["🔙 Ortga"]], resize_keyboard: true, one_time_keyboard: false } }
     );
   }
@@ -189,7 +185,7 @@ bot.on("message", async (msg) => {
   if (text === "💼 Ishga kirish") {
     return bot.sendMessage(
       chatId,
-      "Iltimos, quyidagi botga o'ting va arizani to'ldiring:\n👉 https://t.me/faskidsjob_bot\n\n☎️ Qo'shimcha ma'lumot uchun @faskidsuz_admin bilan bog'laning.",
+      "Ishga kirish uchun quyidagi botga o‘ting va arizani to‘ldiring:\n👉 https://t.me/faskidsjob_bot\n\n☎️ Qo‘shimcha ma’lumot uchun @faskidsuz_admin bilan bog‘laning.",
       { reply_markup: { keyboard: [["🔙 Ortga"]], resize_keyboard: true } }
     );
   }
@@ -202,7 +198,7 @@ bot.on("message", async (msg) => {
     await state.save();
     return bot.sendMessage(
       chatId,
-      "📞 Iltimos, telefon raqamingizni yuboring (masalan: +998901234567). Siz kontakt yoki oddiy matn shaklida yuborishingiz mumkin:",
+      "📞 Endi telefon raqamingizni yuboring (masalan: +998901234567). Siz kontakt yoki oddiy matn shaklida yuborishingiz mumkin:",
       {
         reply_markup: {
           keyboard: [
@@ -288,12 +284,12 @@ bot.on("message", async (msg) => {
       return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
     }
     const channelId = "-1002689337016"; // O'z kanal ID
-    const username = msg.from.username ? `@${msg.from.username}` : "(username mavjud emas)";
-    const firstName = msg.from.first_name || "(Ism mavjud emas)";
+    const username = msg.from.username ? `@${msg.from.username}` : "(username yo'q)";
+    const firstName = msg.from.first_name || "(ismi yo'q)";
     const lastName = msg.from.last_name || "";
-    const fullNameFeedback = state.fullName || "(Ro'yxatdan ism mavjud emas)";
-    const phone = state.phone || "(Telefon mavjud emas)";
-    const userMessage = text || "(Matnli xabar mavjud emas)";
+    const fullNameFeedback = state.fullName || "(Ro'yxatdagi ism yo'q)";
+    const phone = state.phone || "(Telefon yo'q)";
+    const userMessage = text || "(Matnli xabar yo'q)";
     const feedbackText =
       `📝 Yangi murojaat:\n` +
       `👤 <b>Foydalanuvchi:</b> ${fullNameFeedback}\n` +
@@ -330,89 +326,18 @@ bot.on("message", async (msg) => {
     }
     const channelMessageId = parseInt(parts[1], 10);
     if (isNaN(channelMessageId)) {
-      return bot.sendMessage(chatId, "Xato: message_id raqam shaklida bo'lishi kerak.");
+      return bot.sendMessage(chatId, "Xato: message_id son ko‘rinishida bo‘lishi kerak.");
     }
     const channelChatId = process.env.REKLAMA_CHANNEL_CHAT_ID || "-1001316855543";
-    const allUsers = await UserState.find({}, "chatId adMessages");
-    for (const user of allUsers) {
-      try {
-        const sentMsg = await bot.forwardMessage(user.chatId, channelChatId, channelMessageId);
-        user.adMessages.push(sentMsg.message_id);
-        await user.save();
-      } catch (err) {
-        console.error(`Xabar yuborishda xatolik (chat: ${user.chatId}):`, err.message);
-      }
-    }
+    const allUsers = await UserState.find({}, "chatId");
+    allUsers.forEach((user) => {
+      bot.forwardMessage(user.chatId, channelChatId, channelMessageId)
+        .catch((error) => {
+          console.error(`Xabar yuborishda xatolik (user: ${user.chatId}):`, error);
+        });
+    });
     return bot.sendMessage(chatId, "Reklama xabari barcha foydalanuvchilarga yuborildi.");
   }
-
-  // ==== ADMIN REKLAMA XABARLARINI EDIT / DELETE QILISH
-  // /delete_ad: Hammasini o'chirish
-  if (text && text.startsWith("/delete_ad")) {
-    if (!adminIds.includes(msg.from.id)) {
-      return bot.sendMessage(chatId, "Sizga reklama xabarlarini o'chirish huquqi berilmagan.");
-    }
-    try {
-      const users = await UserState.find({ adMessages: { $exists: true, $ne: [] } });
-      let totalDeleted = 0;
-      for (const user of users) {
-        for (const adMsgId of user.adMessages) {
-          try {
-            await bot.deleteMessage(user.chatId, adMsgId);
-            totalDeleted++;
-          } catch (delErr) {
-            console.error(`Chat ${user.chatId} uchun reklama xabarini o'chirishda xatolik (message_id: ${adMsgId}):`, delErr.message);
-          }
-        }
-        user.adMessages = [];
-        await user.save();
-      }
-      return bot.sendMessage(chatId, `Barcha foydalanuvchilardan ${totalDeleted} reklama xabari o'chirildi.`);
-    } catch (err) {
-      console.error("Reklama xabarlarini o'chirishda xatolik:", err.message);
-      return bot.sendMessage(chatId, "Reklama xabarlarini o'chirishda xatolik yuz berdi.");
-    }
-  }
-  
-  // /edit_ad: Reklama xabarlarini tahrir qilish
-  // Admin "/edit_ad [yangi reklama matni]" komandasini yuboradi.
-  if (text && text.startsWith("/edit_ad")) {
-    if (!adminIds.includes(msg.from.id)) {
-      return bot.sendMessage(chatId, "Sizga reklama xabarlarini tahrirlash huquqi berilmagan.");
-    }
-    const parts = text.split(" ");
-    if (parts.length < 2) {
-      return bot.sendMessage(chatId, "Iltimos, '/edit_ad [yangi reklama matni]' formatida yuboring.");
-    }
-    // "/edit_ad" buyrug'idan so'ng qolgan qismini reklama matni sifatida qabul qilamiz.
-    const newAdText = text.substring(text.indexOf(" ") + 1).trim();
-    if (!newAdText) {
-      return bot.sendMessage(chatId, "Yangi reklama matni bo'sh bo'lmasligi kerak.");
-    }
-    try {
-      const users = await UserState.find({ adMessages: { $exists: true, $ne: [] } });
-      let totalEdited = 0;
-      for (const user of users) {
-        for (const adMsgId of user.adMessages) {
-          try {
-            await bot.editMessageText(newAdText, {
-              chat_id: user.chatId,
-              message_id: adMsgId,
-              parse_mode: "HTML"
-            });
-            totalEdited++;
-          } catch (editErr) {
-            console.error(`Chat ${user.chatId} uchun reklama xabarini tahrirlashda xatolik (message_id: ${adMsgId}):`, editErr.message);
-          }
-        }
-      }
-      return bot.sendMessage(chatId, `Barcha foydalanuvchilarda ${totalEdited} reklama xabari tahrirlandi.`);
-    } catch (err) {
-      console.error("Reklama xabarlarini tahrirlashda xatolik:", err.message);
-      return bot.sendMessage(chatId, "Reklama xabarlarini tahrirlashda xatolik yuz berdi.");
-    }
-  }
-  
 });
 
 // ==== CALLBACK QUERY HANDLER ====
@@ -438,5 +363,70 @@ bot.on("callback_query", async (query) => {
     }
   }
 
-  // BONUSNI QAYTA TEKSHIRISH (check_balance) – bonusHandler modulida alohida bajarilgan.
+  // Yangi: Balansni qayta tekshirish callbacki
+  if (data === "check_balance") {
+    try {
+      const customer = await moysklad.findCustomerByCode(state.userCode);
+      if (!customer) {
+        await bot.answerCallbackQuery(query.id, { text: "❌ Kontragent topilmadi", show_alert: true });
+        return;
+      }
+      const bonus = customer.bonusPoints || 0;
+      const phone = customer.phone;
+      const newCaption = `💳 Sizning jamg‘arma kartangiz\n💰 Bonus: ${bonus} ball\n📞 Telefon: ${phone}`;
+      await bot.editMessageCaption(newCaption, {
+        chat_id: chatId,
+        message_id: query.message.message_id,
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Balansni qayta tekshirish', callback_data: 'check_balance' }],
+          ]
+        }
+      });
+      await bot.answerCallbackQuery(query.id, { text: "Balans yangilandi" });
+    } catch (error) {
+      if (error.response && error.response.description && error.response.description.includes("message is not modified")) {
+        await bot.answerCallbackQuery(query.id, { text: "Balans hozirgi qiymatda" });
+      } else {
+        console.error("Balansni yangilashda xatolik:", error);
+        await bot.answerCallbackQuery(query.id, { text: "Xatolik yuz berdi" });
+      }
+    }
+  }
+  
+  if (data === "branch_minor") {
+    await bot.sendPhoto(
+      chatId,
+      "https://www.spot.uz/media/img/2020/12/3Z3MRs16070828252775_b.jpg",
+      {
+        caption: `<b>"Minor Mall"dagi fillialimiz.</b>\n\n<b>Manzil:</b> Bolalar kasalxonasi ro'parasidagi "Minor mall" 2-qavat\n<b>Ish vaqti:</b> 09:30-23:00\n\n<b>Telefon:</b> +998906376007\n<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
+        parse_mode: "HTML"
+      }
+    );
+    const minorLatitude = 39.780488;
+    const minorLongitude = 64.430688;
+    await bot.sendLocation(chatId, minorLatitude, minorLongitude);
+    return bot.answerCallbackQuery(query.id);
+  }
+  
+  if (data === "branch_kitoblar") {
+    await bot.sendPhoto(
+      chatId,
+      "./images/image.jpg",
+      {
+        caption: `<b>Zarafshon mehmonxonasi ro'parasidagi Buxoro kitoblar olamining 1-qavatida.</b>\n\n<b>Manzil:</b> Alisher Navoi Avenue, 5\n<b>Ish vaqti:</b> 09:00-22:00\n\n<b>Telefon:</b> +998906376007\n<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
+        parse_mode: "HTML"
+      }
+    );
+    const kitoblarLatitude = 39.763188;
+    const kitoblarLongitude = 64.425435;
+    await bot.sendLocation(chatId, kitoblarLatitude, kitoblarLongitude);
+    return bot.answerCallbackQuery(query.id);
+  }
+  
+  // Agar kerak bo'lsa, /broadcast komandasi ham adminlar uchun mavjud
+  if (data === "broadcast") {
+    // /broadcast kodini shu yerda saqlab qo'yishingiz mumkin.
+  }
 });
