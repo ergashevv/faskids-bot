@@ -57,8 +57,8 @@ initBirthdayPush(
     UserState,
     moysklad,        // ← shu
     {
-        defaultTime: '04:19', // prod jadvali
-        testTime: '04:19',    // test uchun (TORBERGAN TEST_BDAY_TIME)
+        defaultTime: '04:35', // prod jadvali
+        testTime: '04:35',    // test uchun (TORBERGAN TEST_BDAY_TIME)
         bonusAmount: 1000
     }
 );
