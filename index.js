@@ -4,6 +4,7 @@ const TelegramBot = require("node-telegram-bot-api");
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
+const exportUsersToExcel = require("./utils/exportToExcel");
 
 // Import modullar
 const showBonusCard = require("./components/showBonusCard");
@@ -65,10 +66,12 @@ const adminKeyboard = {
             ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
             ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
             ["📞 Aloqa", "📢 Reklama"],
+            [{ text: "⬇️ Excelga yuklash", callback_data: "export_excel" }], 
         ],
         resize_keyboard: true,
     },
 };
+
 function getUserMenu(isAdmin) {
     return isAdmin ? adminKeyboard : regularUserKeyboard;
 }
@@ -185,6 +188,35 @@ bot.on("message", async (msg) => {
     const text = msg.text || "";
     const state = await getOrCreateUserState(chatId);
     const isAdmin = adminIds.includes(msg.from.id);
+    if (isAdmin && text === "⬇️ Excelga yuklash") {
+        await bot.sendMessage(chatId, "⏳ Excel fayl tayyorlanmoqda. Iltimos kuting...");
+        try {
+            const users = await UserState.find({}, { fullName: 1, phone: 1, userCode: 1 });
+            const result = [];
+            for (const user of users) {
+                let bonus = 0;
+                try {
+                    const customer = await moysklad.findCustomerByCode(user.userCode);
+                    bonus = customer?.bonusPoints || 0;
+                } catch (e) {
+                    console.error(`Bonus olishda xato: ${user.userCode}`, e.message);
+                }
+                result.push({
+                    fullName: user.fullName,
+                    phone: user.phone,
+                    bonus,
+                });
+            }
+            const filePath = await exportUsersToExcel(result);
+            await bot.sendDocument(chatId, filePath, {
+                caption: "📋 Foydalanuvchilar ro‘yxati (bonus bilan)",
+            });
+        } catch (e) {
+            console.error("Excelga eksportda xatolik:", e.message);
+            await bot.sendMessage(chatId, "❌ Excel faylni yaratishda xatolik yuz berdi.");
+        }
+        return;
+    }
 
     // Global "🔙 Ortga" tugmasi – asosiy menyuga qaytish
     if (text === "🔙 Ortga") {
@@ -531,6 +563,38 @@ bot.on("callback_query", async (query) => {
             return bot.sendMessage(chatId, "Obuna tekshiruvida xatolik yuz berdi. Qayta urinib ko'ring.");
         }
     }
+
+    if (data === "export_excel") {
+        if (!adminIds.includes(query.from.id)) {
+            return bot.answerCallbackQuery(query.id, { text: "Ruxsat yo‘q." });
+        }
+
+        await bot.answerCallbackQuery(query.id, { text: "⏳ Yuklanmoqda..." });
+
+        const users = await UserState.find({}, { fullName: 1, phone: 1, userCode: 1 });
+
+        const result = [];
+        for (const user of users) {
+            let bonus = 0;
+            try {
+                const customer = await moysklad.findCustomerByCode(user.userCode);
+                bonus = customer?.bonusPoints || 0;
+            } catch (e) {
+                console.error(`Bonus olishda xato: ${user.userCode}`, e.message);
+            }
+            result.push({
+                fullName: user.fullName,
+                phone: user.phone,
+                bonus,
+            });
+        }
+
+        const filePath = await exportUsersToExcel(result);
+        await bot.sendDocument(chatId, filePath, {
+            caption: "📋 Foydalanuvchilar ro‘yxati (bonus bilan)",
+        });
+    }
+
 
     if (data === "check_balance") {
         try {
