@@ -10,7 +10,9 @@ const userStateSchema = new mongoose.Schema({
   feedbackMessages: { type: [String], default: [] },
   applicationData: { type: Object, default: {} },
   // Reklama xabarlarining message_id larini saqlash uchun maydon
-  adMessages: { type: [Number], default: [] }
+  adMessages: { type: [Number], default: [] },
+  birthday: { type: String, default: "" }      // masalan
+  
 }, { timestamps: true });
 
 module.exports = mongoose.model("UserState", userStateSchema);

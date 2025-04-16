@@ -33,6 +33,7 @@ const userStateSchema = new mongoose.Schema({
     step: { type: String, default: "main_menu" },
     feedbackMessages: { type: [String], default: [] },
     applicationData: { type: Object, default: {} },
+    birthday: { type: String, default: null },
 }, { timestamps: true });
 const UserState = mongoose.model("UserState", userStateSchema);
 
@@ -48,14 +49,26 @@ const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
 // ADMINLAR RO'YXATI – o'zingizning admin telegram IDlaringizni kiriting
 const adminIds = [537750824, 523589911, 5737309471]; // Misol uchun
+const { initBirthdayPush } = require('./birthdayPush');
 
+// Mongo ulanib, bot va UserState tayyor bo‘lgach:
+initBirthdayPush(
+    bot,
+    UserState,
+    moysklad,        // ← shu
+    {
+        defaultTime: '04:19', // prod jadvali
+        testTime: '04:19',    // test uchun (TORBERGAN TEST_BDAY_TIME)
+        bonusAmount: 1000
+    }
+);
 // MENYU KEYBOARDLARI
 const regularUserKeyboard = {
     reply_markup: {
         keyboard: [
             ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
             ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
-            ["📞 Aloqa"],
+            ["📞 Aloqa", "🎁 Bonus"],
         ],
         resize_keyboard: true,
     },
@@ -66,7 +79,7 @@ const adminKeyboard = {
             ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
             ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
             ["📞 Aloqa", "📢 Reklama"],
-            [{ text: "⬇️ Excelga yuklash", callback_data: "export_excel" }], 
+            [{ text: "⬇️ Excelga yuklash", callback_data: "export_excel" }],
         ],
         resize_keyboard: true,
     },
@@ -182,6 +195,27 @@ bot.onText(/\/start/, async (msg) => {
     await state.save();
     return bot.sendMessage(chatId, "👋 Iltimos, ismingiz va familiyangizni yuboring (masalan: Sa`dullayev Quvonch).");
 });
+// --- Kanalga aʼzo bo‘lish xabarini yuborish ---
+function sendVerifyChannel(chatId, isAdmin) {
+    const requiredChannelUsername = 'faskids';
+
+    return bot.sendMessage(
+        chatId,
+        "📢  Davom etish uchun rasmiy kanalga a'zo bo‘ling va «✅ Tekshirish»ni bosing:",
+        {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: "📲 Kanalga qo‘shilish", url: `https://t.me/${requiredChannelUsername}` }
+                    ],
+                    [
+                        { text: "✅ Tekshirish", callback_data: "check_subscription" }
+                    ]
+                ]
+            }
+        }
+    );
+}
 
 bot.on("message", async (msg) => {
     const chatId = msg.chat.id;
@@ -217,6 +251,45 @@ bot.on("message", async (msg) => {
         }
         return;
     }
+    // index.js  – message handler ichida
+    if (state.step === 'get_birthday') {
+
+        if (text === '/skip') {
+            state.step = 'verify_channel';
+            await state.save();
+            return sendVerifyChannel(chatId, isAdmin);
+        }
+
+        /* 1)  sintaksisni tekshiramiz  (DD‑MM‑YYYY) */
+        const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
+        if (!dateRegex.test(text)) {
+            return bot.sendMessage(
+                chatId,
+                "❗ Noto‘g‘ri format. Masalan 17‑04‑1995 deb kiriting yoki /skip bosing."
+            );
+        }
+
+        /* 2)  sana mavjudligini tekshirish (29‑02 kabi holatlar) */
+        const dayjs = require('dayjs');
+        const customParseFormat = require('dayjs/plugin/customParseFormat');
+        dayjs.extend(customParseFormat);
+
+        const parsed = dayjs(text, 'DD-MM-YYYY', true);   // true → strict
+        if (!parsed.isValid()) {
+            return bot.sendMessage(
+                chatId,
+                "❗ Bunday sana mavjud emas. Qayta kiriting (DD‑MM‑YYYY) yoki /skip."
+            );
+        }
+
+        /* 3)  saqlaymiz  (17‑04‑1995 kabi ko‘rinishda) */
+        state.birthday = parsed.format('DD-MM-YYYY');
+        state.step = 'verify_channel';
+        await state.save();
+
+        return sendVerifyChannel(chatId, isAdmin);
+    }
+
 
     // Global "🔙 Ortga" tugmasi – asosiy menyuga qaytish
     if (text === "🔙 Ortga") {
@@ -243,6 +316,18 @@ bot.on("message", async (msg) => {
         }
         return bot.sendMessage(chatId, "+998507266007");
     }
+    if (text === "🎁 Bonus") {
+        // .env dan olamiz yoki 1000 ga tenglaymiz
+        const bonusAmount = process.env.BDAY_BONUS_AMOUNT || 1000;
+
+        // HTML parsing bilan matnni yuboramiz
+        return bot.sendMessage(
+            chatId,
+            `🎉 <b>FAS kids</b> jamoasi xabar qiladi: tug‘ilgan kuningizda sizga <b>+${bonusAmount} bonus</b> beriladi!`,
+            { parse_mode: "HTML" }
+        );
+    }
+
     if (text === "🏢 Filliallar ro‘yxati") {
         const inlineKeyboard = {
             inline_keyboard: [
@@ -299,6 +384,8 @@ bot.on("message", async (msg) => {
             }
         );
     }
+
+
     if (state.step === "get_phone") {
         let rawPhone = "";
         if (msg.contact && msg.contact.phone_number) {
@@ -349,22 +436,16 @@ bot.on("message", async (msg) => {
                 );
             }
         }
-        state.step = "verify_channel";
         state.userCode = customer.code;
         state.phone = rawPhone;
+        state.step = "get_birthday";   //  ← endi tug‘ilgan kun bosqichi
         await state.save();
-        const requiredChannelUsername = "faskids";
+
         return bot.sendMessage(
             chatId,
-            "📢 Davom etish uchun kanalga qo'shiling!",
-            {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: "📲 Kanalga qo'shilish", url: `https://t.me/${requiredChannelUsername}` }],
-                        [{ text: "✅ Tekshirish", callback_data: "check_subscription" }],
-                    ],
-                },
-            }
+            "🎂 Tug‘ilgan kuningizni kiriting: <b>DD-MM-YYYY</b> (masalan 17‑04‑1995).\n" +
+            "Agar kiritishni xohlamasangiz /skip deb yuboring.",
+            { parse_mode: "HTML" }
         );
     }
 
