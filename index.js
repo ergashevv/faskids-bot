@@ -173,7 +173,7 @@ bot.onText(/\/start/, async (msg) => {
     }
     state.step = "get_name";
     await state.save();
-    return bot.sendMessage(chatId, "👋 Iltimos, ismingiz va familiyangizni yuboring (masalan: Abdullayev John).");
+    return bot.sendMessage(chatId, "👋 Iltimos, ismingiz va familiyangizni yuboring (masalan: Sa`dullayev Quvonch).");
 });
 
 // ===== MESSAGE HANDLER =====
