@@ -36,7 +36,7 @@ module.exports = async function showBonusCard(bot, chatId, code) {
       parse_mode: "HTML",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "🔄 Check Balance Again", callback_data: "check_balance" }],
+          [{ text: "🔄 Balansni tekshirish", callback_data: "check_balance" }],
         ],
       },
     });
