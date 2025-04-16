@@ -5,8 +5,8 @@ const showBonusCard = require("../components/showBonusCard");
 module.exports = (bot) => {
   bot.on("callback_query", async (query) => {
     const chatId = query.message.chat.id;
-    const data = query.data;
-    
+    const data = query.data && query.data.trim();  // trim qilib olaylik
+    console.log(chatId,'chatid');
     if (data === "check_balance") {
       try {
         // 1. MongoDB’dan foydalanuvchi holatini olish
@@ -15,15 +15,15 @@ module.exports = (bot) => {
           return bot.sendMessage(chatId, "❗ You are not registered yet. Please press /start.");
         }
         
-        // 2. Eski bonus xabarini majburiy ravishda o'chirish
+        // 2. Eski bonus xabarini o'chirish (agar mavjud bo'lsa)
         try {
           await bot.deleteMessage(chatId, query.message.message_id);
         } catch (deleteErr) {
           console.error("Error deleting the previous message:", deleteErr.message);
-          // Agar xatolik yuz bersa, davom etamiz
+          // Davom etamiz
         }
         
-        // 3. Yangi bonus kartani (barcode va caption bilan) yuborish
+        // 3. Yangi bonus kartani yuborish – bu funksiya yuqoridagi kod kabi ishlaydi
         await showBonusCard(bot, chatId, state.userCode);
         
         // 4. Callback queryga javob qaytarish
