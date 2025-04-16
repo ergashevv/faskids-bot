@@ -88,13 +88,18 @@ async function getOrCreateUserState(chatId) {
  * - Trim qiladi va maksimal 30 belgi qaytaradi
  */
 function sanitizeButtonText(text) {
-    if (!text) return "";
-    let sanitized = text.normalize("NFC")
-        .replace(/[\r\n]+/g, " ")          // Yangi qatorlar olib tashlanadi
-        .replace(/[\x00-\x1F\x7F-\x9F]/g, "") // Nazorat belgilarini olib tashlaydi
+    if (!text) return "(Matn yo'q)";
+    let sanitized = text
+        .normalize("NFKD") // maxsus belgilarni oddiy shaklga keltiradi
+        .replace(/[\p{M}]/gu, "") // diakritik belgilarni olib tashlaydi (𝓮 → e)
+        .replace(/[\r\n]+/g, " ")
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, "") // nazorat belgilarini olib tashlaydi
         .trim();
-    return sanitized.slice(0, 30);
+
+    return sanitized.slice(0, 30) || "(Matn yo'q)";
 }
+
+
 
 /** 
  * Sana formatlash: kun/oy/yil soat:minut
@@ -160,12 +165,11 @@ async function showAdList(chatId, isAdmin) {
     }
 }
 
-// ===== /start HANDLER =====
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     let state = await getOrCreateUserState(chatId);
     const isAdmin = adminIds.includes(msg.from.id);
-    
+
     if (state.userCode) {
         state.step = "main_menu";
         await state.save();
@@ -176,7 +180,6 @@ bot.onText(/\/start/, async (msg) => {
     return bot.sendMessage(chatId, "👋 Iltimos, ismingiz va familiyangizni yuboring (masalan: Sa`dullayev Quvonch).");
 });
 
-// ===== MESSAGE HANDLER =====
 bot.on("message", async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text || "";
@@ -535,17 +538,17 @@ bot.on("callback_query", async (query) => {
             if (!user || !user.phone) {
                 return bot.sendMessage(chatId, "❗ Siz ro'yxatdan o'tmagansiz. Iltimos, /start buyrug'ini bosing.");
             }
-    
+
             const normalizedPhone = user.phone.replace(/\D/g, "").replace(/^998/, "");
             const searchPhone = `998${normalizedPhone}`;
             const customer = await moysklad.findCustomerByPhone(searchPhone);
             if (!customer || customer.length === 0) {
                 return bot.sendMessage(chatId, "❌ Mijoz topilmadi.");
             }
-    
+
             const userCode = customer[0].code;
             if (!userCode) return bot.sendMessage(chatId, "❌ Kod topilmadi.");
-    
+
             await bot.deleteMessage(chatId, query.message.message_id);
             await showBonusCard(bot, chatId, userCode);
             await bot.answerCallbackQuery(query.id, { text: "Balans yangilandi" });
@@ -554,7 +557,7 @@ bot.on("callback_query", async (query) => {
             await bot.sendMessage(chatId, "❌ Xatolik yuz berdi.");
         }
     }
-    
+
     // Filliallar ro'yxati callbacklari
     if (data === "branch_minor") {
         await bot.sendPhoto(
@@ -675,7 +678,7 @@ bot.on("callback_query", async (query) => {
         }
         try {
             await bot.deleteMessage(chatId, query.message.message_id);
-        } catch (e) {}
+        } catch (e) { }
         return bot.sendMessage(
             chatId,
             "Yangi reklama matnini va/yoki media faylini yuboring. Agar faqat matn kiritilsa, rasm/video olib tashlanadi."
@@ -702,7 +705,7 @@ bot.on("callback_query", async (query) => {
         await adDoc.deleteOne();
         try {
             await bot.deleteMessage(chatId, query.message.message_id);
-        } catch (e) {}
+        } catch (e) { }
         return bot.sendMessage(chatId, `Reklama o'chirildi.`, getUserMenu(isAdmin));
     }
 });
