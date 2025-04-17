@@ -27,7 +27,7 @@ module.exports = async function showBonusCard(bot, chatId, code) {
       second: "2-digit",
     });
     
-    const caption = `ℹ️ Har bir xaridingizdan 3% kesbek olish uchun yuqoridagi shtrix-kodni kassirga taqdim eting.\n\n` +
+    const caption = `ℹ️ Har bir xaridingizdan 3% keshbek olish uchun yuqoridagi shtrix-kodni kassirga taqdim eting.\n\n` +
                     `💰 ${formattedDate} holatiga ko'ra balansingiz: ${bonus}\n\n` +
                     `🧍‍♂️ Karta egasi: ${fullName}`;
 
