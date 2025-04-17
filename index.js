@@ -66,7 +66,7 @@ initBirthdayPush(
 const regularUserKeyboard = {
     reply_markup: {
         keyboard: [
-            ["📲 Jamg‘arma kartasi", "� Talab va taklif"],
+            ["📲 Jamg‘arma kartasi", "📝 Talab va taklif"],
             ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
             ["📞 Aloqa", "👤 Hisob"],
         ],
@@ -76,7 +76,7 @@ const regularUserKeyboard = {
 const adminKeyboard = {
     reply_markup: {
         keyboard: [
-            ["📲 Jamg‘arma kartasi", "� Talab va taklif"],
+            ["📲 Jamg‘arma kartasi", "📝 Talab va taklif"],
             ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
             ["📞 Aloqa", "📢 Reklama"],
             [{ text: "⬇️ Excelga yuklash", callback_data: "export_excel" }],
@@ -413,7 +413,7 @@ if (state.step === 'get_birthday') {
             }
         );
     }
-    if (text === "� Talab va taklif") {
+    if (text === "📝 Talab va taklif") {
         state.step = "collect_feedback";
         await state.save();
         return bot.sendMessage(
