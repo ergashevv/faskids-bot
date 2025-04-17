@@ -57,8 +57,8 @@ initBirthdayPush(
     UserState,
     moysklad,        // ← shu
     {
-        defaultTime: '04:35', // prod jadvali
-        testTime: '04:35',    // test uchun (TORBERGAN TEST_BDAY_TIME)
+        defaultTime: '19:56', // prod jadvali
+        testTime: '19:56',    // test uchun (TORBERGAN TEST_BDAY_TIME)
         bonusAmount: 1000
     }
 );
@@ -484,34 +484,45 @@ if (state.step === 'get_birthday') {
             );
         }
         if (!customer) {
+            // yangi kod hosil qilamiz
             const code = `TG-${uuidv4().slice(0, 8)}`;
             try {
-                await moysklad.createCustomer({
-                    name: state.fullName,
-                    phone: searchPhone,
-                    code,
-                });
-                customer = { code };
+              // createCustomer qaytaradigan response ni o‘ziga saqlaymiz
+              // agar siz faqat code ni qaytarsangiz, shunchaki customer = { code }
+              const created = await moysklad.createCustomer({
+                name: state.fullName,
+                phone: searchPhone,
+                code,
+              });
+              // agar API yangi kontragent ob’ektini qaytarsa:
+              customer = created;
+              // yoki agar createCustomer faqat { code } obyektini qaytaradigan bo‘lsa:
+              // customer = { code };
             } catch (error) {
-                console.error("Yangi mijoz yaratishda xato:", error);
-                return bot.sendMessage(
-                    chatId,
-                    "❗ Mijozni yaratishda xatolik yuz berdi. Qayta urinib ko'ring."
-                );
+              console.error(
+                "Yangi mijoz yaratishda xato:",
+                error.response?.data || error.message
+              );
+              return bot.sendMessage(
+                chatId,
+                "❗ Mijozni yaratishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring."
+              );
             }
-        }
-        state.userCode = customer.code;
-        state.phone = rawPhone;
-        state.step = "get_birthday";   //  ← endi tug‘ilgan kun bosqichi
-        await state.save();
-
-        return bot.sendMessage(
+          }
+          
+          // endi customer albatta aniqlangan, shuning uchun .code o‘qilishi xavfsiz
+          state.userCode = customer.code;
+          state.phone    = rawPhone;
+          state.step     = "get_birthday";
+          await state.save();
+          
+          return bot.sendMessage(
             chatId,
             "🎂 Tug‘ilgan kuningizni kiriting: <b>DD-MM-YYYY</b> (masalan 17‑04‑1995).\n" +
             "Agar kiritishni xohlamasangiz /skip deb yuboring.",
             { parse_mode: "HTML" }
         );
-    }
+ }
 
     // Feedback bosqichi (Talab va taklif)
     if (state.step === "collect_feedback") {

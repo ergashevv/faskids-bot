@@ -296,7 +296,7 @@ module.exports = (bot, existingUserKeyboard) => {
             phone: searchPhone,
             code,
           });
-          customer = { code };
+          
         } catch (error) {
           console.error("Yangi mijoz yaratishda xato:", error);
           return bot.sendMessage(chatId, "❗ Mijozni yaratishda xatolik yuz berdi. Qayta urinib ko'ring.");
