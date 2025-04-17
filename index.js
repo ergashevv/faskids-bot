@@ -514,13 +514,12 @@ if (state.step === 'get_birthday') {
     }
 
     // Feedback bosqichi (Talab va taklif)
-    if (state.step === "collect_feedback") {
-        if (text === "🔙 Ortga") {
+    if (state.step === "collect_feedback") { if (text === "🔙 Ortga") {
             state.step = "main_menu";
             await state.save();
             return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
         }
-        const feedbackChannel = process.env.REKLAMA_CHANNEL_CHAT_ID || "-1000000000000";
+        const feedbackChannel = process.env.FEEDBACK_GROUP_ID || "-1000000000000";
         const username = msg.from.username ? `@${msg.from.username}` : "(username yo'q)";
         const firstName = msg.from.first_name || "(Ism yo'q)";
         const lastName = msg.from.last_name || "";
