@@ -514,40 +514,63 @@ if (state.step === 'get_birthday') {
     }
 
     // Feedback bosqichi (Talab va taklif)
-    if (state.step === "collect_feedback") { if (text === "🔙 Ortga") {
-            state.step = "main_menu";
-            await state.save();
-            return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
+    if (state.step === "collect_feedback") {
+        // Agar foydalanuvchi "🔙 Ortga" tugmasini bosmasa, demak feedback davom etadi.
+        // Shuning uchun "🔙 Ortga" bosilgandagina asosiy menyuga qaytamiz:
+        if (text === "🔙 Ortga") {
+          state.step = "main_menu";
+          return bot.sendMessage(chatId, "Asosiy menyu:", existingUserKeyboard);
         }
-        const feedbackChannel = process.env.FEEDBACK_GROUP_ID || "-1000000000000";
+  
+        // Aks holda — foydalanuvchi xoh matn, xoh media yuborsin — kanalingizga forward qilinadi:
+        const channelId = "-1002689337016"; // o'z kanal IDingiz
         const username = msg.from.username ? `@${msg.from.username}` : "(username yo'q)";
-        const firstName = msg.from.first_name || "(Ism yo'q)";
+        const firstName = msg.from.first_name || "(ismi yo'q)";
         const lastName = msg.from.last_name || "";
+        const fullName = state.fullName || "(Ro'yxatdagi ism yo'q)";
+        const phone = state.phone || "(Telefon yo'q)";
+        // msg.text bo'lmasa, userMessage'ga e'tibor berilmaydi. Lekin matn bo'lsa chiqarib yuboriladi:
+        const userMessage = text || "(Matnli xabar yo'q)";
+  
+        // Kanaldagi matn formati:
         const feedbackText =
-            `📝 Yangi talab/taklif:\n` +
-            `👤 <b>Foydalanuvchi:</b> ${state.fullName}\n` +
-            `💡 <b>Username:</b> ${username}\n` +
-            `📱 <b>Telefon:</b> ${state.phone}\n` +
-            `👀 <b>Ism:</b> ${firstName} ${lastName}\n\n` +
-            `<b>Xabar:</b> ${text}`;
-        await bot.sendMessage(feedbackChannel, feedbackText, { parse_mode: "HTML" });
+          `📝 Yangi murojaat:\n` +
+          `👤 <b>Foydalanuvchi:</b> ${fullName}\n` +
+          `💡 <b>Username:</b> ${username}\n` +
+          `📱 <b>Telefon:</b> ${phone}\n` +
+          `👀 <b>Telegram First Name:</b> ${firstName}\n` +
+          (lastName ? `👀 <b>Telegram Last Name:</b> ${lastName}\n` : "") +
+          `\n<b>Xabar:</b> ${userMessage}`;
+  
+        // Avval matn (yoki umumiy info) ni kanalga yuboramiz
+        await bot.sendMessage(channelId, feedbackText, { parse_mode: "HTML" });
+  
+        // Foydalanuvchi rasm yuborgan bo'lsa:
         if (msg.photo && msg.photo.length > 0) {
-            const photoFileId = msg.photo[msg.photo.length - 1].file_id;
-            await bot.sendPhoto(feedbackChannel, photoFileId);
+          // eng yuqori aniqlikdagi rasmni olamiz (massivning oxirgi elementi)
+          const photoFileId = msg.photo[msg.photo.length - 1].file_id;
+          // Istasangiz caption qo'yishingiz yoki userMessage ni caption sifatida yuborishingiz mumkin
+          await bot.sendPhoto(channelId, photoFileId);
         }
+  
+        // Foydalanuvchi ovozli xabar yuborgan bo'lsa:
         if (msg.voice) {
-            await bot.sendVoice(feedbackChannel, msg.voice.file_id);
+          await bot.sendVoice(channelId, msg.voice.file_id);
         }
+  
+        // Foydalanuvchi video yuborgan bo'lsa:
         if (msg.video) {
-            await bot.sendVideo(feedbackChannel, msg.video.file_id);
+          await bot.sendVideo(channelId, msg.video.file_id);
         }
+  
+        // Foydalanuvchi video note (dumaloq video) yuborgan bo'lsa:
         if (msg.video_note) {
-            await bot.sendVideoNote(feedbackChannel, msg.video_note.file_id);
+          await bot.sendVideoNote(channelId, msg.video_note.file_id);
         }
-        state.step = "main_menu";
-        await state.save();
-        return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Rahmat!", getUserMenu(isAdmin));
-    }
+  
+        // Ushbu xabardan keyin ham foydalanuvchi feedback rejimida qoladi:
+        return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Yana fikringiz bormi?");
+      }
 
     // Yangi reklama bosqichi (admin_creating_ad)
     if (isAdmin && state.step === "admin_creating_ad") {
