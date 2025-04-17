@@ -66,9 +66,9 @@ initBirthdayPush(
 const regularUserKeyboard = {
     reply_markup: {
         keyboard: [
-            ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
+            ["📲 Jamg‘arma kartasi", "� Talab va taklif"],
             ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
-            ["📞 Aloqa", "🎁 Bonus"],
+            ["📞 Aloqa", "👤 Hisob"],
         ],
         resize_keyboard: true,
     },
@@ -76,7 +76,7 @@ const regularUserKeyboard = {
 const adminKeyboard = {
     reply_markup: {
         keyboard: [
-            ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
+            ["📲 Jamg‘arma kartasi", "� Talab va taklif"],
             ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
             ["📞 Aloqa", "📢 Reklama"],
             [{ text: "⬇️ Excelga yuklash", callback_data: "export_excel" }],
@@ -222,6 +222,31 @@ bot.on("message", async (msg) => {
     const text = msg.text || "";
     const state = await getOrCreateUserState(chatId);
     const isAdmin = adminIds.includes(msg.from.id);
+
+    if (text === "👤 Hisob") {
+        if (!state.userCode) {
+          return bot.sendMessage(chatId, "❗ Ro‘yxatdan o‘tmagansiz. /start bosing.");
+        }
+        // Agar birthday hali kiritilmagan bo‘lsa
+        if (!state.birthday) {
+          state.step = "get_birthday_account";
+          await state.save();
+          return bot.sendMessage(
+            chatId,
+            "🎂 Tug‘ilgan kuningizni kiriting: <b>DD-MM-YYYY</b> (masalan 17-04-1995).",
+            { parse_mode: "HTML" }
+          );
+        }
+        // Aks holda faqat ko‘rsatamiz
+        const info = 
+          `👤 <b>Foydalanuvchi ma'lumotlari</b>:\n` +
+          `🔹 Ism: ${state.fullName}\n` +
+          `🔹 Telefon: ${state.phone}\n` +
+          `🔹 Kod: ${state.userCode}\n` +
+          `🔹 Tug‘ilgan kun: ${state.birthday}`;
+        return bot.sendMessage(chatId, info, { parse_mode: "HTML" });
+      }
+    
     if (isAdmin && text === "⬇️ Excelga yuklash") {
         await bot.sendMessage(chatId, "⏳ Excel fayl tayyorlanmoqda. Iltimos kuting...");
         try {
@@ -252,43 +277,82 @@ bot.on("message", async (msg) => {
         return;
     }
     // index.js  – message handler ichida
-    if (state.step === 'get_birthday') {
+// … avvalgi kod …
 
-        if (text === '/skip') {
-            state.step = 'verify_channel';
-            await state.save();
-            return sendVerifyChannel(chatId, isAdmin);
-        }
-
-        /* 1)  sintaksisni tekshiramiz  (DD‑MM‑YYYY) */
-        const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
-        if (!dateRegex.test(text)) {
-            return bot.sendMessage(
-                chatId,
-                "❗ Noto‘g‘ri format. Masalan 17‑04‑1995 deb kiriting yoki /skip bosing."
-            );
-        }
-
-        /* 2)  sana mavjudligini tekshirish (29‑02 kabi holatlar) */
-        const dayjs = require('dayjs');
-        const customParseFormat = require('dayjs/plugin/customParseFormat');
-        dayjs.extend(customParseFormat);
-
-        const parsed = dayjs(text, 'DD-MM-YYYY', true);   // true → strict
-        if (!parsed.isValid()) {
-            return bot.sendMessage(
-                chatId,
-                "❗ Bunday sana mavjud emas. Qayta kiriting (DD‑MM‑YYYY) yoki /skip."
-            );
-        }
-
-        /* 3)  saqlaymiz  (17‑04‑1995 kabi ko‘rinishda) */
-        state.birthday = parsed.format('DD-MM-YYYY');
-        state.step = 'verify_channel';
-        await state.save();
-
-        return sendVerifyChannel(chatId, isAdmin);
+if (state.step === 'get_birthday') {
+    // 1) plugin’ni yuklaymiz
+    const dayjs             = require('dayjs');
+    const customParseFormat = require('dayjs/plugin/customParseFormat');
+    dayjs.extend(customParseFormat);
+  
+    // 2) sintaksisni tekshiramiz
+    const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
+    if (!dateRegex.test(text)) {
+      return bot.sendMessage(chatId,
+        "❗ Noto‘g‘ri format. Masalan 17‑04‑1995 deb kiriting yoki /skip bosing."
+      );
     }
+  
+    // 3) haqiqiy sana ekanligini tekshiramiz
+    const parsed = dayjs(text, 'DD-MM-YYYY', true);
+    if (!parsed.isValid()) {
+      return bot.sendMessage(chatId,
+        "❗ Bunday sana mavjud emas. Qayta kiriting (DD‑MM‑YYYY) yoki /skip."
+      );
+    }
+  
+    // 4) saqlaymiz va next step’ga oʻtamiz
+    state.birthday = parsed.format('DD-MM-YYYY');
+    state.step     = 'verify_channel';
+    await state.save();
+  
+    return sendVerifyChannel(chatId, isAdmin);
+  }
+  
+  // ➤ Hisob menyusi orqali tug‘ilgan kunni qo‘lda kiritish:
+  if (state.step === 'get_birthday_account') {
+    // 1) Sintaksisni tekshiramiz (DD‑MM‑YYYY)
+    const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
+    if (!dateRegex.test(text)) {
+      return bot.sendMessage(
+        chatId,
+        "❗ Noto‘g‘ri format. Masalan 17‑04‑1995 kiriting."
+      );
+    }
+  
+    // 2) Sana mavjudligini tekshiramiz (29‑02 va hk.)
+    const dayjs               = require('dayjs');
+    const customParseFormat   = require('dayjs/plugin/customParseFormat');
+    dayjs.extend(customParseFormat);
+    const parsedAccount = dayjs(text, 'DD-MM-YYYY', true);
+    if (!parsedAccount.isValid()) {
+      return bot.sendMessage(
+        chatId,
+        "❗ Bunday sana mavjud emas. Qayta kiriting (DD‑MM‑YYYY)."
+      );
+    }
+  
+    // 3) Saqlaymiz va menyuga qaytamiz
+    state.birthday = parsedAccount.format('DD-MM-YYYY');
+    state.step     = 'main_menu';
+    await state.save();
+  
+    // Hisob ma'lumotlarini chiqaramiz
+    const info =
+      `✅ Tug‘ilgan kun saqlandi!\n\n👤 <b>Sizning ma'lumotlar</b>:\n` +
+      `🔹 Ism: ${state.fullName}\n` +
+      `🔹 Telefon: ${state.phone}\n` +
+      `🔹 Kod: ${state.userCode}\n` +
+      `🔹 Tug‘ilgan kun: ${state.birthday}`;
+  
+    return bot.sendMessage(chatId, info, {
+      parse_mode: 'HTML',
+      reply_markup: getUserMenu(isAdmin).reply_markup
+    });
+  }
+  
+  // … keyingi kod …
+  
 
 
     // Global "🔙 Ortga" tugmasi – asosiy menyuga qaytish
@@ -349,7 +413,7 @@ bot.on("message", async (msg) => {
             }
         );
     }
-    if (text === "📞 Talab va taklif") {
+    if (text === "� Talab va taklif") {
         state.step = "collect_feedback";
         await state.save();
         return bot.sendMessage(

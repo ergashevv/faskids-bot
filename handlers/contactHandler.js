@@ -159,8 +159,8 @@ module.exports = (bot, existingUserKeyboard) => {
       });
     }
 
-    // "📞 Talab va taklif"
-    if (text === "📞 Talab va taklif") {
+    // "📝 Talab va taklif"
+    if (text === "📝 Talab va taklif") {
       state.feedbackMessages = [];
       state.step = "collect_feedback";
       return bot.sendMessage(
