@@ -4,7 +4,6 @@ const TelegramBot = require("node-telegram-bot-api");
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
-const exportUsersToExcel = require("./utils/exportToExcel");
 
 // Import modullar
 const showBonusCard = require("./components/showBonusCard");
@@ -33,7 +32,6 @@ const userStateSchema = new mongoose.Schema({
     step: { type: String, default: "main_menu" },
     feedbackMessages: { type: [String], default: [] },
     applicationData: { type: Object, default: {} },
-    birthday: { type: String, default: null },
 }, { timestamps: true });
 const UserState = mongoose.model("UserState", userStateSchema);
 
@@ -49,26 +47,14 @@ const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
 // ADMINLAR RO'YXATI – o'zingizning admin telegram IDlaringizni kiriting
 const adminIds = [537750824, 523589911, 5737309471]; // Misol uchun
-const { initBirthdayPush } = require('./birthdayPush');
 
-// Mongo ulanib, bot va UserState tayyor bo‘lgach:
-initBirthdayPush(
-    bot,
-    UserState,
-    moysklad,        // ← shu
-    {
-        defaultTime: '19:56', // prod jadvali
-        testTime: '19:56',    // test uchun (TORBERGAN TEST_BDAY_TIME)
-        bonusAmount: 1000
-    }
-);
 // MENYU KEYBOARDLARI
 const regularUserKeyboard = {
     reply_markup: {
         keyboard: [
-            ["📲 Jamg‘arma kartasi", "📝 Talab va taklif"],
+            ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
             ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
-            ["📞 Aloqa", "👤 Hisob"],
+            ["📞 Aloqa"],
         ],
         resize_keyboard: true,
     },
@@ -76,15 +62,13 @@ const regularUserKeyboard = {
 const adminKeyboard = {
     reply_markup: {
         keyboard: [
-            ["📲 Jamg‘arma kartasi", "📝 Talab va taklif"],
+            ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
             ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
             ["📞 Aloqa", "📢 Reklama"],
-            [{ text: "⬇️ Excelga yuklash", callback_data: "export_excel" }],
         ],
         resize_keyboard: true,
     },
 };
-
 function getUserMenu(isAdmin) {
     return isAdmin ? adminKeyboard : regularUserKeyboard;
 }
@@ -104,18 +88,13 @@ async function getOrCreateUserState(chatId) {
  * - Trim qiladi va maksimal 30 belgi qaytaradi
  */
 function sanitizeButtonText(text) {
-    if (!text) return "(Matn yo'q)";
-    let sanitized = text
-        .normalize("NFKD") // maxsus belgilarni oddiy shaklga keltiradi
-        .replace(/[\p{M}]/gu, "") // diakritik belgilarni olib tashlaydi (𝓮 → e)
-        .replace(/[\r\n]+/g, " ")
-        .replace(/[\x00-\x1F\x7F-\x9F]/g, "") // nazorat belgilarini olib tashlaydi
+    if (!text) return "";
+    let sanitized = text.normalize("NFC")
+        .replace(/[\r\n]+/g, " ")          // Yangi qatorlar olib tashlanadi
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, "") // Nazorat belgilarini olib tashlaydi
         .trim();
-
-    return sanitized.slice(0, 30) || "(Matn yo'q)";
+    return sanitized.slice(0, 30);
 }
-
-
 
 /** 
  * Sana formatlash: kun/oy/yil soat:minut
@@ -181,11 +160,12 @@ async function showAdList(chatId, isAdmin) {
     }
 }
 
+// ===== /start HANDLER =====
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     let state = await getOrCreateUserState(chatId);
     const isAdmin = adminIds.includes(msg.from.id);
-
+    
     if (state.userCode) {
         state.step = "main_menu";
         await state.save();
@@ -195,165 +175,13 @@ bot.onText(/\/start/, async (msg) => {
     await state.save();
     return bot.sendMessage(chatId, "👋 Iltimos, ismingiz va familiyangizni yuboring (masalan: Sa`dullayev Quvonch).");
 });
-// --- Kanalga aʼzo bo‘lish xabarini yuborish ---
-function sendVerifyChannel(chatId, isAdmin) {
-    const requiredChannelUsername = 'faskids';
 
-    return bot.sendMessage(
-        chatId,
-        "📢  Davom etish uchun rasmiy kanalga a'zo bo‘ling va «✅ Tekshirish»ni bosing:",
-        {
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        { text: "📲 Kanalga qo‘shilish", url: `https://t.me/${requiredChannelUsername}` }
-                    ],
-                    [
-                        { text: "✅ Tekshirish", callback_data: "check_subscription" }
-                    ]
-                ]
-            }
-        }
-    );
-}
-
+// ===== MESSAGE HANDLER =====
 bot.on("message", async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text || "";
     const state = await getOrCreateUserState(chatId);
     const isAdmin = adminIds.includes(msg.from.id);
-
-    if (text === "👤 Hisob") {
-        if (!state.userCode) {
-          return bot.sendMessage(chatId, "❗ Ro‘yxatdan o‘tmagansiz. /start bosing.");
-        }
-        // Agar birthday hali kiritilmagan bo‘lsa
-        if (!state.birthday) {
-          state.step = "get_birthday_account";
-          await state.save();
-          return bot.sendMessage(
-            chatId,
-            "🎂 Tug‘ilgan kuningizni kiriting: <b>DD-MM-YYYY</b> (masalan 17-04-1995).",
-            { parse_mode: "HTML" }
-          );
-        }
-        // Aks holda faqat ko‘rsatamiz
-        const info = 
-          `👤 <b>Foydalanuvchi ma'lumotlari</b>:\n` +
-          `🔹 Ism: ${state.fullName}\n` +
-          `🔹 Telefon: ${state.phone}\n` +
-          `🔹 Kod: ${state.userCode}\n` +
-          `🔹 Tug‘ilgan kun: ${state.birthday}`;
-        return bot.sendMessage(chatId, info, { parse_mode: "HTML" });
-      }
-    
-    if (isAdmin && text === "⬇️ Excelga yuklash") {
-        await bot.sendMessage(chatId, "⏳ Excel fayl tayyorlanmoqda. Iltimos kuting...");
-        try {
-            const users = await UserState.find({}, { fullName: 1, phone: 1, userCode: 1 });
-            const result = [];
-            for (const user of users) {
-                let bonus = 0;
-                try {
-                    const customer = await moysklad.findCustomerByCode(user.userCode);
-                    bonus = customer?.bonusPoints || 0;
-                } catch (e) {
-                    console.error(`Bonus olishda xato: ${user.userCode}`, e.message);
-                }
-                result.push({
-                    fullName: user.fullName,
-                    phone: user.phone,
-                    bonus,
-                });
-            }
-            const filePath = await exportUsersToExcel(result);
-            await bot.sendDocument(chatId, filePath, {
-                caption: "📋 Foydalanuvchilar ro‘yxati (bonus bilan)",
-            });
-        } catch (e) {
-            console.error("Excelga eksportda xatolik:", e.message);
-            await bot.sendMessage(chatId, "❌ Excel faylni yaratishda xatolik yuz berdi.");
-        }
-        return;
-    }
-    // index.js  – message handler ichida
-// … avvalgi kod …
-
-if (state.step === 'get_birthday') {
-    // 1) plugin’ni yuklaymiz
-    const dayjs             = require('dayjs');
-    const customParseFormat = require('dayjs/plugin/customParseFormat');
-    dayjs.extend(customParseFormat);
-  
-    // 2) sintaksisni tekshiramiz
-    const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
-    if (!dateRegex.test(text)) {
-      return bot.sendMessage(chatId,
-        "❗ Noto‘g‘ri format. Masalan 17‑04‑1995 deb kiriting yoki /skip bosing."
-      );
-    }
-  
-    // 3) haqiqiy sana ekanligini tekshiramiz
-    const parsed = dayjs(text, 'DD-MM-YYYY', true);
-    if (!parsed.isValid()) {
-      return bot.sendMessage(chatId,
-        "❗ Bunday sana mavjud emas. Qayta kiriting (DD‑MM‑YYYY) yoki /skip."
-      );
-    }
-  
-    // 4) saqlaymiz va next step’ga oʻtamiz
-    state.birthday = parsed.format('DD-MM-YYYY');
-    state.step     = 'verify_channel';
-    await state.save();
-  
-    return sendVerifyChannel(chatId, isAdmin);
-  }
-  
-  // ➤ Hisob menyusi orqali tug‘ilgan kunni qo‘lda kiritish:
-  if (state.step === 'get_birthday_account') {
-    // 1) Sintaksisni tekshiramiz (DD‑MM‑YYYY)
-    const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
-    if (!dateRegex.test(text)) {
-      return bot.sendMessage(
-        chatId,
-        "❗ Noto‘g‘ri format. Masalan 17‑04‑1995 kiriting."
-      );
-    }
-  
-    // 2) Sana mavjudligini tekshiramiz (29‑02 va hk.)
-    const dayjs               = require('dayjs');
-    const customParseFormat   = require('dayjs/plugin/customParseFormat');
-    dayjs.extend(customParseFormat);
-    const parsedAccount = dayjs(text, 'DD-MM-YYYY', true);
-    if (!parsedAccount.isValid()) {
-      return bot.sendMessage(
-        chatId,
-        "❗ Bunday sana mavjud emas. Qayta kiriting (DD‑MM‑YYYY)."
-      );
-    }
-  
-    // 3) Saqlaymiz va menyuga qaytamiz
-    state.birthday = parsedAccount.format('DD-MM-YYYY');
-    state.step     = 'main_menu';
-    await state.save();
-  
-    // Hisob ma'lumotlarini chiqaramiz
-    const info =
-      `✅ Tug‘ilgan kun saqlandi!\n\n👤 <b>Sizning ma'lumotlar</b>:\n` +
-      `🔹 Ism: ${state.fullName}\n` +
-      `🔹 Telefon: ${state.phone}\n` +
-      `🔹 Kod: ${state.userCode}\n` +
-      `🔹 Tug‘ilgan kun: ${state.birthday}`;
-  
-    return bot.sendMessage(chatId, info, {
-      parse_mode: 'HTML',
-      reply_markup: getUserMenu(isAdmin).reply_markup
-    });
-  }
-  
-  // … keyingi kod …
-  
-
 
     // Global "🔙 Ortga" tugmasi – asosiy menyuga qaytish
     if (text === "🔙 Ortga") {
@@ -380,18 +208,6 @@ if (state.step === 'get_birthday') {
         }
         return bot.sendMessage(chatId, "+998507266007");
     }
-    if (text === "🎁 Bonus") {
-        // .env dan olamiz yoki 1000 ga tenglaymiz
-        const bonusAmount = process.env.BDAY_BONUS_AMOUNT || 1000;
-
-        // HTML parsing bilan matnni yuboramiz
-        return bot.sendMessage(
-            chatId,
-            `🎉 <b>FAS kids</b> jamoasi xabar qiladi: tug‘ilgan kuningizda sizga <b>+${bonusAmount} bonus</b> beriladi!`,
-            { parse_mode: "HTML" }
-        );
-    }
-
     if (text === "🏢 Filliallar ro‘yxati") {
         const inlineKeyboard = {
             inline_keyboard: [
@@ -413,7 +229,7 @@ if (state.step === 'get_birthday') {
             }
         );
     }
-    if (text === "📝 Talab va taklif") {
+    if (text === "📞 Talab va taklif") {
         state.step = "collect_feedback";
         await state.save();
         return bot.sendMessage(
@@ -448,8 +264,6 @@ if (state.step === 'get_birthday') {
             }
         );
     }
-
-
     if (state.step === "get_phone") {
         let rawPhone = "";
         if (msg.contact && msg.contact.phone_number) {
@@ -484,104 +298,77 @@ if (state.step === 'get_birthday') {
             );
         }
         if (!customer) {
-            // yangi kod hosil qilamiz
             const code = `TG-${uuidv4().slice(0, 8)}`;
             try {
-              // createCustomer qaytaradigan response ni o‘ziga saqlaymiz
-              // agar siz faqat code ni qaytarsangiz, shunchaki customer = { code }
-              const created = await moysklad.createCustomer({
-                name: state.fullName,
-                phone: searchPhone,
-                code,
-              });
-              // agar API yangi kontragent ob’ektini qaytarsa:
-              customer = created;
-              // yoki agar createCustomer faqat { code } obyektini qaytaradigan bo‘lsa:
-              // customer = { code };
+                await moysklad.createCustomer({
+                    name: state.fullName,
+                    phone: searchPhone,
+                    code,
+                });
+                customer = { code };
             } catch (error) {
-              console.error(
-                "Yangi mijoz yaratishda xato:",
-                error.response?.data || error.message
-              );
-              return bot.sendMessage(
-                chatId,
-                "❗ Mijozni yaratishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring."
-              );
+                console.error("Yangi mijoz yaratishda xato:", error);
+                return bot.sendMessage(
+                    chatId,
+                    "❗ Mijozni yaratishda xatolik yuz berdi. Qayta urinib ko'ring."
+                );
             }
-          }
-          
-          // endi customer albatta aniqlangan, shuning uchun .code o‘qilishi xavfsiz
-          state.userCode = customer.code;
-          state.phone    = rawPhone;
-          state.step     = "get_birthday";
-          await state.save();
-          
-          return bot.sendMessage(
+        }
+        state.step = "verify_channel";
+        state.userCode = customer.code;
+        state.phone = rawPhone;
+        await state.save();
+        const requiredChannelUsername = "faskids";
+        return bot.sendMessage(
             chatId,
-            "🎂 Tug‘ilgan kuningizni kiriting: <b>DD-MM-YYYY</b> (masalan 17‑04‑1995).\n" +
-            "Agar kiritishni xohlamasangiz /skip deb yuboring.",
-            { parse_mode: "HTML" }
+            "📢 Davom etish uchun kanalga qo'shiling!",
+            {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: "📲 Kanalga qo'shilish", url: `https://t.me/${requiredChannelUsername}` }],
+                        [{ text: "✅ Tekshirish", callback_data: "check_subscription" }],
+                    ],
+                },
+            }
         );
- }
+    }
 
     // Feedback bosqichi (Talab va taklif)
     if (state.step === "collect_feedback") {
-        // Agar foydalanuvchi "🔙 Ortga" tugmasini bosmasa, demak feedback davom etadi.
-        // Shuning uchun "🔙 Ortga" bosilgandagina asosiy menyuga qaytamiz:
         if (text === "🔙 Ortga") {
-          state.step = "main_menu";
-          return bot.sendMessage(chatId, "Asosiy menyu:", existingUserKeyboard);
+            state.step = "main_menu";
+            await state.save();
+            return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
         }
-  
-        // Aks holda — foydalanuvchi xoh matn, xoh media yuborsin — kanalingizga forward qilinadi:
-        const channelId = "-1002689337016"; // o'z kanal IDingiz
+        const feedbackChannel = process.env.REKLAMA_CHANNEL_CHAT_ID || "-1000000000000";
         const username = msg.from.username ? `@${msg.from.username}` : "(username yo'q)";
-        const firstName = msg.from.first_name || "(ismi yo'q)";
+        const firstName = msg.from.first_name || "(Ism yo'q)";
         const lastName = msg.from.last_name || "";
-        const fullName = state.fullName || "(Ro'yxatdagi ism yo'q)";
-        const phone = state.phone || "(Telefon yo'q)";
-        // msg.text bo'lmasa, userMessage'ga e'tibor berilmaydi. Lekin matn bo'lsa chiqarib yuboriladi:
-        const userMessage = text || "(Matnli xabar yo'q)";
-  
-        // Kanaldagi matn formati:
         const feedbackText =
-          `📝 Yangi murojaat:\n` +
-          `👤 <b>Foydalanuvchi:</b> ${fullName}\n` +
-          `💡 <b>Username:</b> ${username}\n` +
-          `📱 <b>Telefon:</b> ${phone}\n` +
-          `👀 <b>Telegram First Name:</b> ${firstName}\n` +
-          (lastName ? `👀 <b>Telegram Last Name:</b> ${lastName}\n` : "") +
-          `\n<b>Xabar:</b> ${userMessage}`;
-  
-        // Avval matn (yoki umumiy info) ni kanalga yuboramiz
-        await bot.sendMessage(channelId, feedbackText, { parse_mode: "HTML" });
-  
-        // Foydalanuvchi rasm yuborgan bo'lsa:
+            `📝 Yangi talab/taklif:\n` +
+            `👤 <b>Foydalanuvchi:</b> ${state.fullName}\n` +
+            `💡 <b>Username:</b> ${username}\n` +
+            `📱 <b>Telefon:</b> ${state.phone}\n` +
+            `👀 <b>Ism:</b> ${firstName} ${lastName}\n\n` +
+            `<b>Xabar:</b> ${text}`;
+        await bot.sendMessage(feedbackChannel, feedbackText, { parse_mode: "HTML" });
         if (msg.photo && msg.photo.length > 0) {
-          // eng yuqori aniqlikdagi rasmni olamiz (massivning oxirgi elementi)
-          const photoFileId = msg.photo[msg.photo.length - 1].file_id;
-          // Istasangiz caption qo'yishingiz yoki userMessage ni caption sifatida yuborishingiz mumkin
-          await bot.sendPhoto(channelId, photoFileId);
+            const photoFileId = msg.photo[msg.photo.length - 1].file_id;
+            await bot.sendPhoto(feedbackChannel, photoFileId);
         }
-  
-        // Foydalanuvchi ovozli xabar yuborgan bo'lsa:
         if (msg.voice) {
-          await bot.sendVoice(channelId, msg.voice.file_id);
+            await bot.sendVoice(feedbackChannel, msg.voice.file_id);
         }
-  
-        // Foydalanuvchi video yuborgan bo'lsa:
         if (msg.video) {
-          await bot.sendVideo(channelId, msg.video.file_id);
+            await bot.sendVideo(feedbackChannel, msg.video.file_id);
         }
-  
-        // Foydalanuvchi video note (dumaloq video) yuborgan bo'lsa:
         if (msg.video_note) {
-          await bot.sendVideoNote(channelId, msg.video_note.file_id);
+            await bot.sendVideoNote(feedbackChannel, msg.video_note.file_id);
         }
-  
-        // Ushbu xabardan keyin ham foydalanuvchi feedback rejimida qoladi:
-        return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Yana fikringiz bormi?");
-      }
+        state.step = "main_menu";
+        await state.save();
+        return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Rahmat!", getUserMenu(isAdmin));
+    }
 
     // Yangi reklama bosqichi (admin_creating_ad)
     if (isAdmin && state.step === "admin_creating_ad") {
@@ -742,55 +529,23 @@ bot.on("callback_query", async (query) => {
         }
     }
 
-    if (data === "export_excel") {
-        if (!adminIds.includes(query.from.id)) {
-            return bot.answerCallbackQuery(query.id, { text: "Ruxsat yo‘q." });
-        }
-
-        await bot.answerCallbackQuery(query.id, { text: "⏳ Yuklanmoqda..." });
-
-        const users = await UserState.find({}, { fullName: 1, phone: 1, userCode: 1 });
-
-        const result = [];
-        for (const user of users) {
-            let bonus = 0;
-            try {
-                const customer = await moysklad.findCustomerByCode(user.userCode);
-                bonus = customer?.bonusPoints || 0;
-            } catch (e) {
-                console.error(`Bonus olishda xato: ${user.userCode}`, e.message);
-            }
-            result.push({
-                fullName: user.fullName,
-                phone: user.phone,
-                bonus,
-            });
-        }
-
-        const filePath = await exportUsersToExcel(result);
-        await bot.sendDocument(chatId, filePath, {
-            caption: "📋 Foydalanuvchilar ro‘yxati (bonus bilan)",
-        });
-    }
-
-
     if (data === "check_balance") {
         try {
             const user = await UserState.findOne({ chatId });
             if (!user || !user.phone) {
                 return bot.sendMessage(chatId, "❗ Siz ro'yxatdan o'tmagansiz. Iltimos, /start buyrug'ini bosing.");
             }
-
+    
             const normalizedPhone = user.phone.replace(/\D/g, "").replace(/^998/, "");
             const searchPhone = `998${normalizedPhone}`;
             const customer = await moysklad.findCustomerByPhone(searchPhone);
             if (!customer || customer.length === 0) {
                 return bot.sendMessage(chatId, "❌ Mijoz topilmadi.");
             }
-
+    
             const userCode = customer[0].code;
             if (!userCode) return bot.sendMessage(chatId, "❌ Kod topilmadi.");
-
+    
             await bot.deleteMessage(chatId, query.message.message_id);
             await showBonusCard(bot, chatId, userCode);
             await bot.answerCallbackQuery(query.id, { text: "Balans yangilandi" });
@@ -799,7 +554,7 @@ bot.on("callback_query", async (query) => {
             await bot.sendMessage(chatId, "❌ Xatolik yuz berdi.");
         }
     }
-
+    
     // Filliallar ro'yxati callbacklari
     if (data === "branch_minor") {
         await bot.sendPhoto(
@@ -920,7 +675,7 @@ bot.on("callback_query", async (query) => {
         }
         try {
             await bot.deleteMessage(chatId, query.message.message_id);
-        } catch (e) { }
+        } catch (e) {}
         return bot.sendMessage(
             chatId,
             "Yangi reklama matnini va/yoki media faylini yuboring. Agar faqat matn kiritilsa, rasm/video olib tashlanadi."
@@ -947,7 +702,7 @@ bot.on("callback_query", async (query) => {
         await adDoc.deleteOne();
         try {
             await bot.deleteMessage(chatId, query.message.message_id);
-        } catch (e) { }
+        } catch (e) {}
         return bot.sendMessage(chatId, `Reklama o'chirildi.`, getUserMenu(isAdmin));
     }
 });
