@@ -53,7 +53,7 @@ const regularUserKeyboard = {
     reply_markup: {
         keyboard: [
             ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
-            ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
+            ["📍 Lokatsiya", "💼 Ishga kirish"],
             ["📞 Aloqa"],
         ],
         resize_keyboard: true,
@@ -63,7 +63,7 @@ const adminKeyboard = {
     reply_markup: {
         keyboard: [
             ["📲 Jamg‘arma kartasi", "📞 Talab va taklif"],
-            ["🏢 Filliallar ro‘yxati", "💼 Ishga kirish"],
+            ["📍 Lokatsiya", "💼 Ishga kirish"],
             ["📞 Aloqa", "📢 Reklama"],
         ],
         resize_keyboard: true,
@@ -208,14 +208,14 @@ bot.on("message", async (msg) => {
         }
         return bot.sendMessage(chatId, "+998507266007");
     }
-    if (text === "🏢 Filliallar ro‘yxati") {
-        const inlineKeyboard = {
-            inline_keyboard: [
-                [{ text: "FAS kids Minor", callback_data: "branch_minor" }],
-                [{ text: "FAS kids Kitoblar Olami", callback_data: "branch_kitoblar" }],
-            ],
-        };
-        return bot.sendMessage(chatId, "Qaysi filialni tanlaysiz?", { reply_markup: inlineKeyboard });
+    if (text === "📍 Lokatsiya") {
+        return bot.sendMessage(chatId, "Bizning filialimiz:", {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: "📍 FAS kids Minor", callback_data: "branch_minor" }]
+                ]
+            }
+        });
     }
     if (text === "💼 Ishga kirish") {
         return bot.sendMessage(
@@ -574,26 +574,6 @@ bot.on("callback_query", async (query) => {
         const minorLatitude = 39.780488;
         const minorLongitude = 64.430688;
         await bot.sendLocation(chatId, minorLatitude, minorLongitude);
-        return bot.answerCallbackQuery(query.id);
-    }
-    if (data === "branch_kitoblar") {
-        await bot.sendPhoto(
-            chatId,
-            "./images/image.jpg",
-            {
-                caption:
-                    `<b>Zarafshon mehmonxonasi ro'parasidagi Buxoro kitoblar olamining 1-qavatida.</b>\n\n` +
-                    `<b>Manzil:</b> Alisher Navoi Avenue, 5\n` +
-                    `<b>Ish vaqti:</b> 09:00-22:00\n\n` +
-                    `<b>Telefon:</b> +998906376007\n` +
-                    `<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n` +
-                    `<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
-                parse_mode: "HTML",
-            }
-        );
-        const kitoblarLatitude = 39.763188;
-        const kitoblarLongitude = 64.425435;
-        await bot.sendLocation(chatId, kitoblarLatitude, kitoblarLongitude);
         return bot.answerCallbackQuery(query.id);
     }
 
