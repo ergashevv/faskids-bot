@@ -209,13 +209,24 @@ bot.on("message", async (msg) => {
         return bot.sendMessage(chatId, "+998507266007");
     }
     if (text === "📍 Lokatsiya") {
-        return bot.sendMessage(chatId, "Bizning filialimiz:", {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: "📍 FAS kids Minor", callback_data: "branch_minor" }]
-                ]
+        await bot.sendPhoto(
+            chatId,
+            "https://www.spot.uz/media/img/2020/12/3Z3MRs16070828252775_b.jpg",
+            {
+                caption:
+                    `<b>"Minor Mall"dagi fillialimiz.</b>\n\n` +
+                    `<b>Manzil:</b> Bolalar kasalxonasi ro'parasidagi "Minor mall" 2-qavat\n` +
+                    `<b>Ish vaqti:</b> 09:30-23:00\n\n` +
+                    `<b>Telefon:</b> +998906376007\n` +
+                    `<b>Telegram:</b> <a href="https://t.me/faskids">Telegram</a>\n` +
+                    `<b>Instagram:</b> <a href="https://instagram.com/faskids_uz">Instagram</a>`,
+                parse_mode: "HTML",
             }
-        });
+        );
+        const minorLatitude = 39.780488;
+        const minorLongitude = 64.430688;
+        await bot.sendLocation(chatId, minorLatitude, minorLongitude);
+        return;
     }
     if (text === "💼 Ishga kirish") {
         return bot.sendMessage(
@@ -340,7 +351,7 @@ bot.on("message", async (msg) => {
             await state.save();
             return bot.sendMessage(chatId, "Asosiy menyu:", getUserMenu(isAdmin));
         }
-        const feedbackChannel = process.env.REKLAMA_CHANNEL_CHAT_ID || "-1000000000000";
+        const feedbackChannel = process.env.FEEDBACK_GROUP_ID || "-1000000000000";
         const username = msg.from.username ? `@${msg.from.username}` : "(username yo'q)";
         const firstName = msg.from.first_name || "(Ism yo'q)";
         const lastName = msg.from.last_name || "";
@@ -351,7 +362,10 @@ bot.on("message", async (msg) => {
             `📱 <b>Telefon:</b> ${state.phone}\n` +
             `👀 <b>Ism:</b> ${firstName} ${lastName}\n\n` +
             `<b>Xabar:</b> ${text}`;
+
+        // Always send feedbackText first, even if there is media.
         await bot.sendMessage(feedbackChannel, feedbackText, { parse_mode: "HTML" });
+
         if (msg.photo && msg.photo.length > 0) {
             const photoFileId = msg.photo[msg.photo.length - 1].file_id;
             await bot.sendPhoto(feedbackChannel, photoFileId);
@@ -365,9 +379,11 @@ bot.on("message", async (msg) => {
         if (msg.video_note) {
             await bot.sendVideoNote(feedbackChannel, msg.video_note.file_id);
         }
-        state.step = "main_menu";
-        await state.save();
-        return bot.sendMessage(chatId, "✅ Xabar qabul qilindi. Rahmat!", getUserMenu(isAdmin));
+        // Do not reset to main_menu; keep in collect_feedback mode
+        return bot.sendMessage(
+            chatId,
+            "✅ Xabar qabul qilindi. Yana yozishingiz mumkin yoki 🔙 Ortga tugmasini bosing."
+        );
     }
 
     // Yangi reklama bosqichi (admin_creating_ad)
